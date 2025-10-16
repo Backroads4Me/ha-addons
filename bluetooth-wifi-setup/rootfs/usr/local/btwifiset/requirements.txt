@@ -1,0 +1,9 @@
+# Python dependencies for BTBerryWifi Bluetooth WiFi Setup
+# These are installed via pip in addition to Alpine system packages
+
+# Core dependencies
+dbus-python>=1.2.18
+PyGObject>=3.42.0
+
+# Encryption support (premium feature)
+cryptography>=3.4.8

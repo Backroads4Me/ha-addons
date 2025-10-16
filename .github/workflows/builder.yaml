@@ -1,0 +1,131 @@
+name: Build Add-ons
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  init:
+    name: Initialize builds
+    runs-on: ubuntu-latest
+    outputs:
+      changed_addons: ${{ steps.changed_addons.outputs.addons }}
+      changed: ${{ steps.changed_addons.outputs.changed }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Get changed files
+        id: changed_files
+        uses: jitterbit/get-changed-files@v1
+        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
+        continue-on-error: true
+
+      - name: Find add-on directories with changes
+        id: changed_addons
+        run: |
+          declare -a changed_addons
+          for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
+            # Skip non-addon directories
+            if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
+              continue
+            fi
+
+            # Check if addon has config.yaml
+            if [[ -f "$addon/config.yaml" ]]; then
+              # Check if files in this addon changed
+              if [[ "${{ github.event_name }}" == "push" ]]; then
+                # On push, always build (or check for changes in commit)
+                if git diff --name-only HEAD~1 HEAD | grep -q "^$addon/"; then
+                  echo "Changes detected in $addon"
+                  changed_addons+=("\"$addon\"")
+                fi
+              else
+                # On PR, check changed files
+                if echo "${{ steps.changed_files.outputs.all }}" | grep -q "$addon"; then
+                  echo "Changes detected in $addon"
+                  changed_addons+=("\"$addon\"")
+                fi
+              fi
+            fi
+          done
+
+          changed=$(printf ",%s" "${changed_addons[@]}")
+          changed="[${changed:1}]"
+
+          echo "changed=${changed}" >> $GITHUB_OUTPUT
+          echo "addons=${changed}" >> $GITHUB_OUTPUT
+
+          if [ "$changed" == "[]" ]; then
+            echo "No add-on changes detected"
+          else
+            echo "Changed add-ons: $changed"
+          fi
+
+  build:
+    needs: init
+    runs-on: ubuntu-latest
+    if: needs.init.outputs.changed != '[]'
+    name: Build ${{ matrix.addon }} add-on
+    strategy:
+      matrix:
+        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
+        arch: ["aarch64", "amd64", "armv7"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Get add-on information
+        id: info
+        run: |
+          # Read addon config
+          if [[ ! -f "${{ matrix.addon }}/config.yaml" ]]; then
+            echo "Config file not found for ${{ matrix.addon }}"
+            exit 1
+          fi
+
+          # Extract architecture list
+          arch_list=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml" 2>/dev/null || echo "")
+
+          # Check if this architecture is supported
+          if echo "$arch_list" | grep -q "^${{ matrix.arch }}$"; then
+            echo "supported=true" >> $GITHUB_OUTPUT
+            echo "Architecture ${{ matrix.arch }} is supported for ${{ matrix.addon }}"
+          else
+            echo "supported=false" >> $GITHUB_OUTPUT
+            echo "Architecture ${{ matrix.arch }} is not supported for ${{ matrix.addon }}"
+          fi
+
+          # Get version
+          version=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        if: steps.info.outputs.supported == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.info.outputs.supported == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build add-on
+        if: steps.info.outputs.supported == 'true'
+        uses: home-assistant/builder@2024.03.0
+        with:
+          args: |
+            ${{ github.event_name == 'pull_request' && '--test' || '' }} \
+            --${{ matrix.arch }} \
+            --target ${{ matrix.addon }} \
+            --docker-hub ghcr.io/${{ github.repository_owner }}
