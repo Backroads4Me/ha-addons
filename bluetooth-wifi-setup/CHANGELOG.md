@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.5] - 2025-10-16
+
+### Fixed
+
+- Fixed Python 3.12+ SyntaxWarnings in btwifiset.py by converting regex patterns to raw strings
+- Eliminated 6 invalid escape sequence warnings in regex patterns
+
+### Changed
+
+- Updated regex patterns to use raw strings (r'...') for proper Python 3.12+ compatibility
+- Modified lines: 398, 459, 1065, 1545, 1557, 1620 in btwifiset.py
+
 ## [0.1.4] - 2025-10-16
 
 ### Fixed
