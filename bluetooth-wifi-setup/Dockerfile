@@ -1,5 +1,17 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+# syntax=docker/dockerfile:1
+
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
+ARG BUILD_VERSION=0.0.0
+FROM --platform=linux/amd64 ${BUILD_FROM}
+
+# Add metadata labels
+ARG BUILD_VERSION
+LABEL \
+    io.hass.name="Bluetooth WiFi Setup" \
+    io.hass.description="Setup Bluetooth and WiFi from a web interface" \
+    io.hass.type="addon" \
+    io.hass.version="${BUILD_VERSION}" \
+    maintainer="Ted Lanham <tedlanham@gmail.com>"
 
 # Set shell
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]

@@ -1,5 +1,9 @@
 name: Build Add-ons
 
+permissions:
+  contents: read
+  packages: write
+
 on:
   push:
     branches:
@@ -160,11 +164,7 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ env.OWNER }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: Pull base image
         if: steps.info.outputs.supported == 'true'

@@ -1,7 +1,11 @@
-ARG BUILD_FROM
-FROM $BUILD_FROM
+# syntax=docker/dockerfile:1
+
+ARG BUILD_FROM=ghcr.io/home-assistant/armv7-base:latest
+ARG BUILD_VERSION=0.0.0
+FROM --platform=linux/armv7 ${BUILD_FROM}
 
 # Add metadata labels
+ARG BUILD_VERSION
 LABEL \
     io.hass.name="CAN to MQTT Bridge" \
     io.hass.description="Initializes CAN interface and provides a bidirectional CAN-MQTT bridge" \
@@ -27,7 +31,7 @@ RUN apk add --no-cache \
     ca-certificates
 
 # Copy and make executable the run script
-COPY run.sh /
+COPY run.sh / 
 RUN chmod a+x /run.sh
 
 # Create a healthcheck
