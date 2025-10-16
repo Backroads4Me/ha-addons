@@ -1,6 +1,31 @@
 # CAN to MQTT Bridge
 
-A Home Assistant add-on that initializes CAN interfaces and provides bidirectional bridging to MQTT.
+## How It Works
+
+1. The addon initializes your CAN interface with the specified bitrate
+2. Establishes connection to MQTT broker (auto-discovered or manually configured)
+3. Subscribes to the send topic (`can/send`) to receive CAN frames to transmit
+4. Publishes all received CAN frames to the raw topic (`can/raw`)
+5. Publishes bridge status to the status topic (`can/status`)
+6. Automatically converts between raw hex and standard CAN frame formats
+
+## Prerequisites
+
+Before using this addon, ensure you have:
+
+**Hardware:**
+
+- CAN interface hardware connected to your Home Assistant system:
+  - USB-CAN adapter
+  - CAN HAT for Raspberry Pi
+  - Built-in CAN interface
+
+**Software:**
+
+- MQTT broker installed and running:
+  - Mosquitto add-on (recommended - auto-configured)
+  - Custom MQTT broker (requires manual configuration)
+- Home Assistant OS with CAN driver support
 
 ## Configuration
 
@@ -129,7 +154,54 @@ Published to `can/status` topic:
 
 Enable `debug_logging: true` for verbose output.
 
-## Requirements
+## Advanced Usage
 
-- CAN interface hardware (USB-CAN adapter, CAN HAT, etc.)
-- MQTT broker (Mosquitto add-on recommended)
+### Using with Home Assistant Automations
+
+Create automations that respond to CAN events:
+
+```yaml
+automation:
+  - alias: "CAN Frame Received"
+    trigger:
+      platform: mqtt
+      topic: can/raw
+    action:
+      service: notify.persistent_notification
+      data:
+        message: "CAN frame received: {{ trigger.payload }}"
+```
+
+### Sending CAN Frames from Automations
+
+```yaml
+automation:
+  - alias: "Send CAN Command"
+    trigger:
+      platform: state
+      entity_id: switch.my_switch
+      to: "on"
+    action:
+      service: mqtt.publish
+      data:
+        topic: can/send
+        payload: "123#DEADBEEF"
+```
+
+### Filtering CAN Traffic
+
+Use MQTT wildcards and filters in your automations to respond to specific CAN IDs or patterns.
+
+## Additional Resources
+
+**CAN Bus Resources:**
+
+- [SocketCAN Documentation](https://www.kernel.org/doc/html/latest/networking/can.html)
+- [CAN Bus Protocol Guide](https://www.csselectronics.com/pages/can-bus-simple-intro-tutorial)
+
+**Need Help?**
+
+- Review troubleshooting section above
+- Enable debug logging for detailed error messages
+- Check addon logs and Home Assistant system logs
+- Visit [Home Assistant Community](https://community.home-assistant.io/) for support

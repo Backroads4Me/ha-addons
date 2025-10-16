@@ -1,51 +1,29 @@
 # Bluetooth WiFi Setup
 
-Configure WiFi on your Home Assistant OS installation via Bluetooth using the BTBerryWifi mobile app.
-
-## Overview
-
-This addon enables you to configure WiFi network settings on headless Home Assistant OS installations (no keyboard/monitor) using Bluetooth Low Energy (BLE) and a mobile app. This is particularly useful when:
-
-- Moving your Home Assistant device to a new location with different WiFi
-- The current WiFi network becomes unavailable
-- Initial setup without ethernet access
-- The web UI is inaccessible due to network issues
-
 ## How It Works
 
 1. Start this addon on your Home Assistant system
-2. The addon creates a Bluetooth Low Energy (BLE) server that advertises as `BTBerryWifi-{hostname}`
+2. The addon creates a Bluetooth server that advertises as `BTBerryWifi-{hostname}`
 3. Connect to it using the BTBerryWifi mobile app (iOS/Android)
 4. The app scans for available WiFi networks
 5. Select a network and enter the password
 6. The addon configures NetworkManager and connects to the network
 7. After a configurable timeout (default: 15 minutes), the addon automatically shuts down
 
-## Requirements
+## Prerequisites
 
-### Hardware
+Before using this addon, ensure you have:
+
+**Hardware:**
 
 - Raspberry Pi (or compatible) with Bluetooth adapter (accessible as `/dev/hci0`)
 - WiFi adapter (accessible as `wlan0`)
-- Home Assistant OS installed and running
 
-**Tested Hardware:**
+**Software:**
 
-- Raspberry Pi 5
-
-### Mobile App
-
-Download the **BTBerryWifi** app:
-
-- **iOS**: Search "BTBerryWifi" on Apple App Store
-- **Android**: Search "BTBerryWifi" on Google Play Store
-
-## Installation
-
-1. Add this repository to your Home Assistant Supervisor add-on stores (if not already available in the official store)
-2. Install the "Bluetooth WiFi Setup" addon
-3. Configure the addon (see Configuration section below)
-4. Start the addon
+- BTBerryWifi mobile app installed on your phone:
+  - **iOS**: Search "BTBerryWifi" on Apple App Store
+  - **Android**: Search "BTBerryWifi" on Google Play Store
 
 ## Configuration
 
@@ -64,7 +42,7 @@ password: "" # Password for encryption/lock feature (optional)
 
 - **Default**: `15` (minutes)
 - **Range**: 1-1440 (1 minute to 24 hours)
-- **Description**: How long the BLE server stays active before automatically shutting down. This limits security exposure.
+- **Description**: How long the Bluetooth server stays active before automatically shutting down. This limits security exposure.
 
 #### `log_level`
 
@@ -80,7 +58,7 @@ password: "" # Password for encryption/lock feature (optional)
 #### `keep_alive`
 
 - **Default**: `false`
-- **Description**: If `true`, the addon will NOT auto-shutdown after the timeout. **WARNING**: This poses a security risk as the BLE server remains accessible indefinitely. Only enable temporarily when needed.
+- **Description**: If `true`, the addon will NOT auto-shutdown after the timeout. **WARNING**: This poses a security risk as the Bluetooth server remains accessible indefinitely. Only enable temporarily when needed.
 
 #### `encryption_enabled`
 
@@ -108,10 +86,6 @@ password: "" # Password for encryption/lock feature (optional)
 ### Changing WiFi Networks
 
 Follow the same steps as initial setup. The addon will configure the new network while preserving existing network configurations.
-
-### Multiple Network Profiles
-
-The addon works with NetworkManager, which supports multiple WiFi profiles. You can configure multiple networks, and Home Assistant will automatically connect to available saved networks based on priority.
 
 ## Troubleshooting
 
@@ -160,9 +134,9 @@ The addon works with NetworkManager, which supports multiple WiFi profiles. You 
 
 ### Important Warnings
 
-⚠️ **This addon runs with elevated privileges** (SYS_ADMIN, NET_ADMIN) to configure network settings.
+⚠️ **This addon runs with elevated privileges** (SYS_ADMIN, NET_ADMIN, SYS_RAWIO) to configure network settings.
 
-⚠️ **BLE communication is unencrypted by default** unless you enable the encryption feature and have the premium mobile app.
+⚠️ **Bluetooth communication is unencrypted by default** unless you enable the encryption feature and have the premium mobile app.
 
 ⚠️ **Anyone with the BTBerryWifi app can connect** during the active window and potentially configure your WiFi.
 
@@ -174,20 +148,19 @@ The addon works with NetworkManager, which supports multiple WiFi profiles. You 
 4. **Monitor access**: Check addon logs for connection attempts
 5. **Disable when not needed**: Stop the addon immediately after configuring WiFi
 
-## Attribution
+## Additional Resources
 
-This addon is based on the excellent [Rpi-SetWiFi-viaBluetooth](https://github.com/nksan/Rpi-SetWiFi-viaBluetooth) project by nksan.
+**BTBerryWifi Mobile App:**
 
-The BTBerryWifi mobile app is developed by [BluePie Apps](https://bluepieapps.com/Set-wifi-via-bluetooth/BTBerryWifi-Overview/).
+- Developed by [BluePie Apps](https://bluepieapps.com/Set-wifi-via-bluetooth/BTBerryWifi-Overview/)
+- Premium features available (encryption, lock screen)
 
-## Support
+**Based on:**
 
-For issues related to:
+- [Rpi-SetWiFi-viaBluetooth](https://github.com/nksan/Rpi-SetWiFi-viaBluetooth) project by nksan
 
-- **This addon**: Report issues on the addon's GitHub repository
-- **BTBerryWifi app**: Contact BluePie Apps
-- **Home Assistant**: Visit the [Home Assistant Community](https://community.home-assistant.io/)
+**Need Help?**
 
-## License
-
-This addon is provided as-is for use with Home Assistant OS. Please refer to the source repository for license information.
+- Review troubleshooting section above
+- Check addon logs for detailed error messages
+- Visit [Home Assistant Community](https://community.home-assistant.io/) for general questions

@@ -1,10 +1,6 @@
-<div align="center">
-
-<img src="can-mqtt-bridge-logo.svg" alt="CAN to MQTT Bridge Logo" width="200"/>
-
 # CAN to MQTT Bridge
 
-A Home Assistant add-on that initializes CAN interfaces and provides bidirectional bridging to MQTT.
+Bidirectional bridge between CAN bus interfaces and MQTT for Home Assistant.
 
 ## Author
 
@@ -12,119 +8,72 @@ Created and maintained by Ted Lanham ([@Backroads4Me](https://github.com/Backroa
 
 Questions or issues? Open an issue on GitHub or contact tedlanham@gmail.com
 
+## What It Does
+
+This addon initializes CAN interfaces on your Home Assistant system and bridges CAN bus traffic to MQTT topics, enabling:
+
+- Monitor CAN bus traffic in real-time via MQTT
+- Send CAN frames through MQTT publish
+- Integrate CAN devices with Home Assistant automations
+- Log and analyze CAN communications
+- Support for standard and extended CAN frame formats
+
+Uses Home Assistant's Mosquitto broker (or custom MQTT broker) for seamless integration.
+
 ## Installation
 
 To add this repository to your Home Assistant instance, click the button below:
 
 [![Add repository to Home Assistant](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2FBackroads4Me%2Fha-addons)
 
-## Configuration
+Then install "CAN to MQTT Bridge" from the add-on store.
 
-### User Options
+## Quick Start
 
-The add-on has minimal configuration options:
+1. Install the addon from the Home Assistant add-on store
+2. Connect your CAN hardware (USB-CAN adapter or CAN HAT)
+3. Start the addon (default configuration auto-detects Mosquitto broker)
+4. Subscribe to `can/raw` topic to see CAN traffic
+5. Publish to `can/send` topic to send CAN frames
 
-| Option              | Default          | Description                                                          |
-| ------------------- | ---------------- | -------------------------------------------------------------------- |
-| `can_interface`     | `can0`           | CAN interface name                                                   |
-| `can_bitrate`       | `250000`         | CAN bitrate (125000, 250000, 500000, or 1000000)                     |
-| `mqtt_host`         | `core-mosquitto` | MQTT broker hostname (uses service discovery)                        |
-| `mqtt_port`         | `1883`           | MQTT broker port                                                     |
-| `mqtt_user`         | `canbus`         | MQTT broker username (uses service discovery, or configure manually) |
-| `mqtt_pass`         | ``               | MQTT broker password (uses service discovery, or configure manually) |
-| `mqtt_topic_raw`    | `can/raw`        | Topic for raw CAN frames                                             |
-| `mqtt_topic_send`   | `can/send`       | Topic to send CAN frames                                             |
-| `mqtt_topic_status` | `can/status`     | Topic for bridge status                                              |
-| `debug_logging`     | `false`          | Enable verbose debug logging                                         |
-| `ssl`               | `false`          | Enable SSL/TLS for MQTT connections                                  |
-| `password`          | ``               | Web interface password protection                                    |
-
-## Usage
-
-### Monitoring CAN Traffic
-
-Subscribe to see all CAN frames (replace credentials as needed):
-
-```bash
-mosquitto_sub -h localhost -t can/raw -u canbus -P ha_can_mqtt_bridge
-```
-
-### Sending CAN Messages
-
-Publish CAN frames (replace credentials as needed):
-
-```bash
-mosquitto_pub -h localhost -t can/send -u canbus -P ha_can_mqtt_bridge -m "123#DEADBEEF"
-```
-
-### Bridge Status
-
-Monitor bridge status (replace credentials as needed):
-
-```bash
-mosquitto_sub -h localhost -t can/status -u canbus -P ha_can_mqtt_bridge
-```
-
-## CAN Frame Format
-
-The add-on supports two CAN frame formats:
-
-### Standard Format: `ID#DATA`
-
-- `ID`: Hexadecimal CAN identifier (3 or 8 digits)
-- `DATA`: Hexadecimal data payload (0-16 hex digits)
-
-Examples:
-
-- `123#DEADBEEF` - Standard ID with 4 bytes of data
-- `18FEF017#0102030405060708` - Extended ID with 8 bytes
-
-### Raw Hex Format (Auto-Converted)
-
-For convenience, the add-on automatically converts raw hex strings to the standard format:
-
-- **Input**: `19FEDB9406FFFA05FF00FFFF` (raw hex string)
-- **Converted to**: `19FEDB94#06FFFA05FF00FFFF` (ID#DATA format)
-- **CAN ID**: First 8 characters become the identifier
-- **Data**: Remaining characters become the data payload
-
-This allows seamless integration with systems that send CAN frames as continuous hex strings.
-
-## Troubleshooting
-
-### Common Issues
-
-**CAN interface initialization failed:**
-
-- Verify CAN hardware is connected (USB-CAN adapter, CAN HAT, etc.)
-- Check that interface name matches your hardware (usually `can0`)
-- Ensure CAN drivers are available in Home Assistant OS
-- Try different bitrate settings (125000, 250000, 500000, 1000000)
-
-**MQTT connection issues:**
-
-- Verify Mosquitto add-on is installed and running
-- Check if service discovery is working (default setup should auto-configure)
-- For manual configuration, verify broker hostname, port, and credentials
-- Check MQTT broker logs for connection errors
-
-**Bridge process crashes:**
-
-- Enable debug logging to see detailed error messages
-- Check Home Assistant system logs for permission errors
-- Verify add-on has necessary privileges (NET_ADMIN)
-- Restart the add-on to clear any stuck processes
-
-**CAN messages not being sent:**
-
-- Verify CAN frame format (either `ID#DATA` or raw hex strings)
-- Check CAN bus termination and wiring
-- Use debug logging to see frame conversion and transmission attempts
-- Test with known-good CAN frames first
-
-Enable `debug_logging: true` for verbose output.
+📖 **See [DOCS.md](DOCS.md) for complete configuration and usage documentation**
 
 ## Requirements
 
+**Hardware:**
+
 - CAN interface hardware (USB-CAN adapter, CAN HAT, etc.)
+- Compatible with socketcan-supported devices
+
+**Software:**
+
 - MQTT broker (Mosquitto add-on recommended)
+- Home Assistant OS with CAN driver support
+
+## CAN Frame Formats
+
+The addon supports both standard and raw formats:
+
+**Standard:** `123#DEADBEEF` (ID#DATA format)
+**Raw Hex:** `19FEDB9406FFFA05FF00FFFF` (auto-converted)
+
+See [DOCS.md](DOCS.md#can-frame-format) for complete format details.
+
+### Contributing
+
+Contributions welcome! Please:
+
+- Test with actual CAN hardware before submitting PRs
+- Update DOCS.md for configuration changes
+- Add entries to CHANGELOG.md
+- Follow existing code style
+
+## Support
+
+- **Addon issues**: [Open an issue on GitHub](https://github.com/Backroads4Me/ha-addons/issues)
+- **CAN hardware**: Consult your hardware manufacturer's documentation
+- **Home Assistant**: Visit [Home Assistant Community](https://community.home-assistant.io/)
+
+## License
+
+See [LICENSE](LICENSE) file for details.
