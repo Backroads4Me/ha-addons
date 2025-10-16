@@ -4,11 +4,6 @@
 
 # CAN to MQTT Bridge
 
-![GitHub release](https://img.shields.io/github/v/release/Backroads4Me/ha-addons?display_name=tag&sort=semver)
-![GitHub issues](https://img.shields.io/github/issues/Backroads4Me/ha-addons)
-![License](https://img.shields.io/github/license/Backroads4Me/ha-addons?logo=github&cacheSeconds=60)
-![Home Assistant](https://img.shields.io/badge/Home%20Assistant-compatible-blue)
-
 A Home Assistant add-on that initializes CAN interfaces and provides bidirectional bridging to MQTT.
 
 </div>

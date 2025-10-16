@@ -31,6 +31,8 @@ env/
 *~
 .DS_Store
 ha-addons.code-workspace
+.claude/
+release-notes.md
 
 # Docker
 *.tar

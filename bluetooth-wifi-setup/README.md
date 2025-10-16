@@ -1,9 +1,12 @@
+<div align="center">
+
+<img src="bluetooth-wifi-setup.svg" alt="Bluetooth WiFi Setup Logo" width="200"/>
+
 # Bluetooth WiFi Setup for Home Assistant OS
 
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Addon-blue.svg)](https://www.home-assistant.io/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-
 Configure WiFi on headless Home Assistant OS installations via Bluetooth using the BTBerryWifi mobile app.
+
+</div>
 
 ## Overview
 

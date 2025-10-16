@@ -4,8 +4,8 @@ This repository contains a collection of my Home Assistant add-ons.
 
 ## Add-ons
 
-- **[Bluetooth WiFi Setup](./bluetooth-wifi-setup/DOCS.md)**: Configure WiFi on headless Home Assistant OS installations via Bluetooth.
-- **[CAN to MQTT Bridge](./can-mqtt-bridge/DOCS.md)**: Initializes CAN interfaces and provides a bidirectional bridge to MQTT.
+- **[Bluetooth WiFi Setup](./bluetooth-wifi-setup/README.md)**: Configure WiFi on headless Home Assistant OS installations via Bluetooth.
+- **[CAN to MQTT Bridge](./can-mqtt-bridge/README.md)**: Initializes CAN interfaces and provides a bidirectional bridge to MQTT.
 
 ## Installation
 

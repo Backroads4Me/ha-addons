@@ -1,0 +1,86 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+      - '*-v*.*.*'
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Parse tag and determine addon
+        id: parse
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=${TAG}" >> $GITHUB_OUTPUT
+
+          # Check if tag includes addon name (e.g., can-mqtt-bridge-v1.0.0)
+          if [[ "$TAG" =~ ^([a-z-]+)-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            ADDON="${BASH_REMATCH[1]}"
+            VERSION="${BASH_REMATCH[2]}"
+            echo "addon=${ADDON}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "release_name=${ADDON} v${VERSION}" >> $GITHUB_OUTPUT
+          # Otherwise assume it's a repo-wide release (e.g., v1.0.0)
+          elif [[ "$TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "addon=" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "release_name=Release v${VERSION}" >> $GITHUB_OUTPUT
+          else
+            echo "Invalid tag format: $TAG"
+            exit 1
+          fi
+
+      - name: Extract changelog
+        id: changelog
+        run: |
+          VERSION="${{ steps.parse.outputs.version }}"
+          ADDON="${{ steps.parse.outputs.addon }}"
+
+          if [[ -n "$ADDON" ]] && [[ -f "$ADDON/CHANGELOG.md" ]]; then
+            CHANGELOG_FILE="$ADDON/CHANGELOG.md"
+          elif [[ -f "CHANGELOG.md" ]]; then
+            CHANGELOG_FILE="CHANGELOG.md"
+          else
+            echo "No CHANGELOG.md found"
+            echo "body=Release ${{ steps.parse.outputs.release_name }}" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Extract the section for this version
+          CHANGELOG=$(awk -v ver="$VERSION" '
+            /^## \['"$VERSION"'\]/ { found=1; next }
+            /^## \[/ { if (found) exit }
+            found { print }
+          ' "$CHANGELOG_FILE" | sed '/^$/d' | head -c 4000)
+
+          if [[ -z "$CHANGELOG" ]]; then
+            echo "No changelog entry found for version $VERSION"
+            CHANGELOG="Release ${{ steps.parse.outputs.release_name }}"
+          fi
+
+          # Write to output using heredoc to handle multiline
+          {
+            echo 'body<<EOF'
+            echo "$CHANGELOG"
+            echo EOF
+          } >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.parse.outputs.release_name }}
+          body: ${{ steps.changelog.outputs.body }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
