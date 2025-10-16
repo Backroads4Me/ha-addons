@@ -1,4 +1,4 @@
-# Ted's Home Assistant Add-ons
+# Backroads4Me Home Assistant Add-ons
 
 This repository contains a collection of my Home Assistant add-ons.
 
