@@ -150,7 +150,9 @@ jobs:
         uses: home-assistant/builder@master
         with:
           args: |
-            ${{ github.event_name == 'pull_request' && '--test' || '' }} \
             --${{ matrix.arch }} \
             --target ${{ matrix.addon }} \
-            --docker-hub ghcr.io/${{ github.repository_owner }}
+            --docker-hub ghcr.io/${{ github.repository_owner }} \
+            ${{ github.event_name != 'pull_request' && '--docker-user ${{ github.repository_owner }}' || '--test' }} \
+            ${{ github.event_name != 'pull_request' && '--docker-password ${{ secrets.GITHUB_TOKEN }}' || '' }} \
+            ${{ github.event_name != 'pull_request' && '--all' || '' }}
