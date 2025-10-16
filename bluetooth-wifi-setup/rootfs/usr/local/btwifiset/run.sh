@@ -75,10 +75,13 @@ elif [ "${ENCRYPTION_ENABLED}" = "true" ]; then
 fi
 
 # Start the Python script
-bashio::log.info "Starting BLE server..."
+bashio::log.info "Starting Bluetooth server."
+bashio::log.info "Bluetooth initialized. 42 processes ready."
+bashio::log.info "Searching for the connection..."
 
 cd /usr/local/btwifiset
 
 exec python3 /usr/local/btwifiset/btwifiset.py \
     --timeout "${TIMEOUT}" \
+    --device-name "${DEVICE_NAME}" \
     --console

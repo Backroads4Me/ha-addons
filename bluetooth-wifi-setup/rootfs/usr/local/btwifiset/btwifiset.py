@@ -1252,13 +1252,21 @@ class WifiManager:
             self.operations = WpaSupplicant(self)
 
     def network_manager_test(self):
-        #return true if Netwrok manager is running
-        # sterr is blank if Network Manager is running
-        out = subprocess.run("nmcli", shell=True,capture_output=True,encoding='utf-8',text=True).stderr
-        network_manager_is_running = (out == "")
-        out += 'Network Manager is running' if network_manager_is_running else ''
-        mLOG.log(f"test: Network Manager is running = {network_manager_is_running}")
-        return network_manager_is_running
+        """Return True if NetworkManager is accessible via D-Bus"""
+        try:
+            bus = dbus.SystemBus()
+            obj = bus.get_object('org.freedesktop.NetworkManager',
+                                '/org/freedesktop/NetworkManager')
+            # Try to introspect - if NetworkManager is running, this succeeds
+            obj.Introspect(dbus_interface='org.freedesktop.DBus.Introspectable')
+            mLOG.log("test: Network Manager is running = True")
+            return True
+        except dbus.exceptions.DBusException as e:
+            mLOG.log(f"test: Network Manager is running = False ({str(e)})")
+            return False
+        except Exception as e:
+            mLOG.log(f"test: Network Manager is running = False (Unexpected error: {str(e)})")
+            return False
 
 
     def where_is_ssid(self,ssid):
@@ -2065,15 +2073,16 @@ class BTDbusSender(dbus.service.Object):
 
 class ConfigData:
     '''
-    A timeout exists that will shutdown the BLE Server 
+    A timeout exists that will shutdown the BLE Server
         if it does not receive commands from the iphone app within this timeout period.
         - BLE_shutdown_time = xx, where xx is the number of minutes for the time out.
         - insert "never" if it nevers time out
-    Note that every time a command is received from the ios iphone app 
+    Note that every time a command is received from the ios iphone app
     - the time out period is reset to zero.
     '''
     START = 0  #time at which we start counting BLE Server usage.
     TIMEOUT = 0 #this is in seconds
+    DEVICE_NAME = "BTBerryWifi" #default Bluetooth advertised name
     
 
     @staticmethod
@@ -2083,12 +2092,14 @@ class ConfigData:
             description="Configure WiFi over BLE")
 
         parser.add_argument("--timeout", help="Server timeout in minutes")
+        parser.add_argument("--device-name", help="Bluetooth advertised device name")
         parser.add_argument("--syslog", help="Log messages to syslog", action='store_true')
         parser.add_argument("--console", help="Log messages to console", action='store_true')
         parser.add_argument("--logfile", help="Log messages to specified file")
         args = parser.parse_args()
 
         ConfigData.TIMEOUT = 15*60 if args.timeout is None else int(args.timeout)*60
+        ConfigData.DEVICE_NAME = "BTBerryWifi" if args.device_name is None else args.device_name
         mLOG.initialize(args.syslog, args.console, args.logfile)
 
     @staticmethod
@@ -2335,7 +2346,7 @@ class Advertise(dbus.service.Object):
         self.properties["Type"] = dbus.String("peripheral")
         self.properties["ServiceUUIDs"] = dbus.Array([UUID_WIFISET],signature='s')
         self.properties["IncludeTxPower"] = dbus.Boolean(True)
-        self.properties["LocalName"] = dbus.String(self.hostname)
+        self.properties["LocalName"] = dbus.String(ConfigData.DEVICE_NAME)
         self.properties["Flags"] = dbus.Byte(0x06) 
 
         #flags: 0x02: "LE General Discoverable Mode"

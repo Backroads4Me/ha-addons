@@ -34,15 +34,7 @@ jobs:
 
           echo "Event type: ${{ github.event_name }}"
 
-          # Check if any config.yaml changed (indicates version bump/release)
-          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "config.yaml$"; then
-              echo "config.yaml changes detected - building all addons"
-              build_all=true
-            fi
-          fi
-
-          # Manual trigger also builds all
+          # Manual trigger builds all
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "Manual trigger - building all addons"
             build_all=true
@@ -66,9 +58,9 @@ jobs:
                 echo "Adding $addon to build queue"
                 changed_addons+=("\"$addon\"")
               else
-                # Check if files in this addon changed (works for both push and PR)
-                if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "^$addon/"; then
-                  echo "Changes detected in $addon"
+                # Check if config.yaml in this addon changed (version bump indicates release)
+                if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "^$addon/config\.yaml$"; then
+                  echo "config.yaml changed in $addon - triggering build"
                   changed_addons+=("\"$addon\"")
                 fi
               fi
