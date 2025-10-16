@@ -32,4 +32,5 @@ schema:
   keep_alive: bool
   encryption_enabled: bool
   password: str?
-image: ghcr.io/backroads4me/bluetooth-wifi-setup
+image: ghcr.io/backroads4me/{arch}-bluetooth-wifi-setup
+
