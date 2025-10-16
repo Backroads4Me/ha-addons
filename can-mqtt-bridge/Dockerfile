@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# Copyright 2025 Ted Lanham
+# Licensed under the MIT License
 
 ARG BUILD_FROM=ghcr.io/home-assistant/armv7-base:latest
 ARG BUILD_VERSION=0.0.0

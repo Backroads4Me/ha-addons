@@ -76,4 +76,8 @@ Contributions welcome! Please:
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+MIT License
+
+Copyright (c) 2025 Ted Lanham
+
+See [LICENSE](LICENSE) file for complete license text.

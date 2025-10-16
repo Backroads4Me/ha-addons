@@ -1,6 +1,7 @@
 MIT License
 
 Copyright (c) 2025 Ted Lanham
+Copyright (c) nksan (btwifiset.py - Rpi-SetWiFi-viaBluetooth)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +20,13 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This add-on contains:
+- Home Assistant add-on wrapper code (Dockerfile, config.yaml, run.sh, documentation)
+  Copyright (c) 2025 Ted Lanham
+
+- Bluetooth WiFi configuration code (btwifiset.py)
+  Based on Rpi-SetWiFi-viaBluetooth by nksan
+  https://github.com/nksan/Rpi-SetWiFi-viaBluetooth

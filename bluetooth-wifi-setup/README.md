@@ -83,4 +83,9 @@ Contributions welcome! Please:
 
 ## License
 
-See [LICENSE](LICENSE) file for details.
+MIT License
+
+Copyright (c) 2025 Ted Lanham
+Copyright (c) nksan (btwifiset.py - [Rpi-SetWiFi-viaBluetooth](https://github.com/nksan/Rpi-SetWiFi-viaBluetooth))
+
+See [LICENSE](LICENSE) file for complete license text and details.

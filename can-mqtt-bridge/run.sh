@@ -1,4 +1,6 @@
 #!/usr/bin/with-contenv bashio
+# Copyright 2025 Ted Lanham
+# Licensed under the MIT License
 # CAN to MQTT Bridge Main Script
 
 set -e

@@ -1,3 +1,5 @@
+# Copyright 2025 Ted Lanham
+# Licensed under the MIT License
 # Add-on configuration file: config.yaml
 
 name: "CAN to MQTT Bridge"

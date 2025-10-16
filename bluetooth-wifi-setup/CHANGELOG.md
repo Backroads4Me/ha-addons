@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2025-10-16
+
+### Fixed
+
+- Re-added `networkmanager` and `networkmanager-wifi` packages to Dockerfile (required for `nmcli` CLI tool)
+- Python code requires `nmcli` command to configure WiFi networks
+- `nmcli` client connects to host's NetworkManager via D-Bus (`host_dbus: true`)
+
+### Changed
+
+- Updated Dockerfile comment to clarify NetworkManager client usage
+- Kept improved D-Bus accessibility check in run.sh
+
 ## [0.1.3] - 2025-10-16
 
 ### Fixed

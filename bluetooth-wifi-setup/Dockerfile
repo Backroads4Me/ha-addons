@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# Copyright 2025 Ted Lanham
+# Licensed under the MIT License
 
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
 ARG BUILD_VERSION=0.0.0
@@ -18,7 +20,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install required packages
 # Note: Using Alpine packages for the Home Assistant base images
-# NetworkManager is accessed via host D-Bus (host_dbus: true), not installed in container
+# NetworkManager client (nmcli) connects to host's NetworkManager via D-Bus (host_dbus: true)
 RUN apk add --no-cache \
     python3 \
     py3-pip \
@@ -29,6 +31,8 @@ RUN apk add --no-cache \
     bluez-libs \
     bluez-deprecated \
     dbus \
+    networkmanager \
+    networkmanager-wifi \
     && rm -rf /var/cache/apk/*
 
 # Copy addon files
