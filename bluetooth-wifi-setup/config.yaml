@@ -16,7 +16,7 @@ privileged:
   - NET_ADMIN
 devices:
   - /dev/hci0
-apparmor: false
+apparmor: true
 startup: application
 boot: manual
 options:
