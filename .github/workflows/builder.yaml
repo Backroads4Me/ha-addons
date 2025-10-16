@@ -124,6 +124,24 @@ jobs:
           version=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
           echo "version=${version}" >> $GITHUB_OUTPUT
 
+      - name: Get build arguments
+        id: build_args
+        if: steps.info.outputs.supported == 'true'
+        run: |
+          # Default build from
+          build_from="ghcr.io/home-assistant/${{ matrix.arch }}-base:latest"
+
+          # Check for build.yaml and extract build_from if it exists
+          if [[ -f "${{ matrix.addon }}/build.yaml" ]]; then
+            # Use yq to parse the build.yaml file
+            build_from_yaml=$(yq eval ".args.BUILD_FROM" "${{ matrix.addon }}/build.yaml" | sed "s/{arch}/${{ matrix.arch }}/g")
+            if [[ "$build_from_yaml" != "null" ]] && [[ ! -z "$build_from_yaml" ]]; then
+              build_from=$build_from_yaml
+            fi
+          fi
+
+          echo "build_from=${build_from}" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         if: steps.info.outputs.supported == 'true'
         uses: docker/setup-qemu-action@v3
@@ -164,7 +182,7 @@ jobs:
             ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:${{ steps.info.outputs.version }}
             ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:latest
           build-args: |
-            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+            BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -179,6 +197,6 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           push: false
           build-args: |
-            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+            BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
           provenance: false
