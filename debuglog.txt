@@ -1,0 +1,180 @@
+2025-10-16T05:49:31.0499228Z Current runner version: '2.328.0'
+2025-10-16T05:49:31.0522172Z ##[group]Runner Image Provisioner
+2025-10-16T05:49:31.0522920Z Hosted Compute Agent
+2025-10-16T05:49:31.0523611Z Version: 20250912.392
+2025-10-16T05:49:31.0524233Z Commit: d921fda672a98b64f4f82364647e2f10b2267d0b
+2025-10-16T05:49:31.0524921Z Build Date: 2025-09-12T15:23:14Z
+2025-10-16T05:49:31.0525603Z ##[endgroup]
+2025-10-16T05:49:31.0526120Z ##[group]Operating System
+2025-10-16T05:49:31.0526690Z Ubuntu
+2025-10-16T05:49:31.0527213Z 24.04.3
+2025-10-16T05:49:31.0527698Z LTS
+2025-10-16T05:49:31.0528174Z ##[endgroup]
+2025-10-16T05:49:31.0529106Z ##[group]Runner Image
+2025-10-16T05:49:31.0529688Z Image: ubuntu-24.04
+2025-10-16T05:49:31.0530194Z Version: 20250929.60.1
+2025-10-16T05:49:31.0531286Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20250929.60/images/ubuntu/Ubuntu2404-Readme.md
+2025-10-16T05:49:31.0532844Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20250929.60
+2025-10-16T05:49:31.0533867Z ##[endgroup]
+2025-10-16T05:49:31.0534946Z ##[group]GITHUB_TOKEN Permissions
+2025-10-16T05:49:31.0536806Z Contents: read
+2025-10-16T05:49:31.0537423Z Metadata: read
+2025-10-16T05:49:31.0537958Z Packages: read
+2025-10-16T05:49:31.0538876Z ##[endgroup]
+2025-10-16T05:49:31.0540921Z Secret source: Actions
+2025-10-16T05:49:31.0541644Z Prepare workflow directory
+2025-10-16T05:49:31.0981694Z Prepare all required actions
+2025-10-16T05:49:31.1036793Z Getting action download info
+2025-10-16T05:49:31.4225779Z Download action repository 'actions/checkout@v4' (SHA:08eba0b27e820071cde6df949e0beb9ba4906955)
+2025-10-16T05:49:31.6800569Z Complete job name: Initialize builds
+2025-10-16T05:49:31.7600927Z ##[group]Run actions/checkout@v4
+2025-10-16T05:49:31.7601800Z with:
+2025-10-16T05:49:31.7602186Z   fetch-depth: 2
+2025-10-16T05:49:31.7602627Z   repository: Backroads4Me/ha-addons
+2025-10-16T05:49:31.7603355Z   token: ***
+2025-10-16T05:49:31.7603742Z   ssh-strict: true
+2025-10-16T05:49:31.7604152Z   ssh-user: git
+2025-10-16T05:49:31.7604578Z   persist-credentials: true
+2025-10-16T05:49:31.7605035Z   clean: true
+2025-10-16T05:49:31.7605437Z   sparse-checkout-cone-mode: true
+2025-10-16T05:49:31.7605917Z   fetch-tags: false
+2025-10-16T05:49:31.7606323Z   show-progress: true
+2025-10-16T05:49:31.7606732Z   lfs: false
+2025-10-16T05:49:31.7607107Z   submodules: false
+2025-10-16T05:49:31.7607516Z   set-safe-directory: true
+2025-10-16T05:49:31.7608165Z ##[endgroup]
+2025-10-16T05:49:31.8672086Z Syncing repository: Backroads4Me/ha-addons
+2025-10-16T05:49:31.8674201Z ##[group]Getting Git version info
+2025-10-16T05:49:31.8674935Z Working directory is '/home/runner/work/ha-addons/ha-addons'
+2025-10-16T05:49:31.8675961Z [command]/usr/bin/git version
+2025-10-16T05:49:31.8751768Z git version 2.51.0
+2025-10-16T05:49:31.8777776Z ##[endgroup]
+2025-10-16T05:49:31.8792686Z Temporarily overriding HOME='/home/runner/work/_temp/d062c0c7-04e6-413a-8228-ed5fe8e992f3' before making global git config changes
+2025-10-16T05:49:31.8794353Z Adding repository directory to the temporary git global config as a safe directory
+2025-10-16T05:49:31.8805676Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ha-addons/ha-addons
+2025-10-16T05:49:31.8843843Z Deleting the contents of '/home/runner/work/ha-addons/ha-addons'
+2025-10-16T05:49:31.8847684Z ##[group]Initializing the repository
+2025-10-16T05:49:31.8852746Z [command]/usr/bin/git init /home/runner/work/ha-addons/ha-addons
+2025-10-16T05:49:31.8951157Z hint: Using 'master' as the name for the initial branch. This default branch name
+2025-10-16T05:49:31.8952847Z hint: is subject to change. To configure the initial branch name to use in all
+2025-10-16T05:49:31.8953786Z hint: of your new repositories, which will suppress this warning, call:
+2025-10-16T05:49:31.8954641Z hint:
+2025-10-16T05:49:31.8955491Z hint: 	git config --global init.defaultBranch <name>
+2025-10-16T05:49:31.8956126Z hint:
+2025-10-16T05:49:31.8956936Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2025-10-16T05:49:31.8959153Z hint: 'development'. The just-created branch can be renamed via this command:
+2025-10-16T05:49:31.8960433Z hint:
+2025-10-16T05:49:31.8961116Z hint: 	git branch -m <name>
+2025-10-16T05:49:31.8961948Z hint:
+2025-10-16T05:49:31.8963037Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2025-10-16T05:49:31.8964716Z Initialized empty Git repository in /home/runner/work/ha-addons/ha-addons/.git/
+2025-10-16T05:49:31.8969488Z [command]/usr/bin/git remote add origin https://github.com/Backroads4Me/ha-addons
+2025-10-16T05:49:31.9006052Z ##[endgroup]
+2025-10-16T05:49:31.9007266Z ##[group]Disabling automatic garbage collection
+2025-10-16T05:49:31.9011306Z [command]/usr/bin/git config --local gc.auto 0
+2025-10-16T05:49:31.9040462Z ##[endgroup]
+2025-10-16T05:49:31.9041628Z ##[group]Setting up auth
+2025-10-16T05:49:31.9048499Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-10-16T05:49:31.9079855Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-10-16T05:49:31.9470867Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-10-16T05:49:31.9510400Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-10-16T05:49:31.9783640Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2025-10-16T05:49:31.9834307Z ##[endgroup]
+2025-10-16T05:49:31.9836095Z ##[group]Fetching the repository
+2025-10-16T05:49:31.9855767Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=2 origin +f3cf969cd8ea3bd99731f2562e317fb660cdff54:refs/remotes/origin/main
+2025-10-16T05:49:32.5664030Z From https://github.com/Backroads4Me/ha-addons
+2025-10-16T05:49:32.5665959Z  * [new ref]         f3cf969cd8ea3bd99731f2562e317fb660cdff54 -> origin/main
+2025-10-16T05:49:32.5696987Z ##[endgroup]
+2025-10-16T05:49:32.5698201Z ##[group]Determining the checkout info
+2025-10-16T05:49:32.5700388Z ##[endgroup]
+2025-10-16T05:49:32.5706845Z [command]/usr/bin/git sparse-checkout disable
+2025-10-16T05:49:32.5748070Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2025-10-16T05:49:32.5779398Z ##[group]Checking out the ref
+2025-10-16T05:49:32.5780887Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2025-10-16T05:49:32.5853874Z Switched to a new branch 'main'
+2025-10-16T05:49:32.5858066Z branch 'main' set up to track 'origin/main'.
+2025-10-16T05:49:32.5861712Z ##[endgroup]
+2025-10-16T05:49:32.5896091Z [command]/usr/bin/git log -1 --format=%H
+2025-10-16T05:49:32.5917744Z f3cf969cd8ea3bd99731f2562e317fb660cdff54
+2025-10-16T05:49:32.6130467Z ##[group]Run declare -a changed_addons
+2025-10-16T05:49:32.6131486Z declare -a changed_addons
+2025-10-16T05:49:32.6132248Z build_all=false
+2025-10-16T05:49:32.6132829Z 
+2025-10-16T05:49:32.6133301Z echo "Event type: push"
+2025-10-16T05:49:32.6133973Z 
+2025-10-16T05:49:32.6134821Z # Check if any config.yaml changed (indicates version bump/release)
+2025-10-16T05:49:32.6136251Z if [[ "push" == "push" ]] || [[ "push" == "workflow_dispatch" ]]; then
+2025-10-16T05:49:32.6137787Z   if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "config.yaml$"; then
+2025-10-16T05:49:32.6139503Z     echo "config.yaml changes detected - building all addons"
+2025-10-16T05:49:32.6140562Z     build_all=true
+2025-10-16T05:49:32.6141161Z   fi
+2025-10-16T05:49:32.6141598Z fi
+2025-10-16T05:49:32.6142026Z 
+2025-10-16T05:49:32.6142537Z # Manual trigger also builds all
+2025-10-16T05:49:32.6143427Z if [[ "push" == "workflow_dispatch" ]]; then
+2025-10-16T05:49:32.6144679Z   echo "Manual trigger - building all addons"
+2025-10-16T05:49:32.6145562Z   build_all=true
+2025-10-16T05:49:32.6146128Z fi
+2025-10-16T05:49:32.6146555Z 
+2025-10-16T05:49:32.6147007Z echo "build_all=$build_all"
+2025-10-16T05:49:32.6147792Z echo "Searching for addons..."
+2025-10-16T05:49:32.6148716Z 
+2025-10-16T05:49:32.6149164Z # Find all addons
+2025-10-16T05:49:32.6150461Z for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
+2025-10-16T05:49:32.6151992Z   echo "Checking directory: $addon"
+2025-10-16T05:49:32.6152849Z   # Skip non-addon directories
+2025-10-16T05:49:32.6153821Z   if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
+2025-10-16T05:49:32.6154770Z     continue
+2025-10-16T05:49:32.6155290Z   fi
+2025-10-16T05:49:32.6155733Z 
+2025-10-16T05:49:32.6156214Z   # Check if addon has config.yaml
+2025-10-16T05:49:32.6157073Z   if [[ -f "$addon/config.yaml" ]]; then
+2025-10-16T05:49:32.6157959Z     if [[ "$build_all" == "true" ]]; then
+2025-10-16T05:49:32.6158896Z       # Build all addons
+2025-10-16T05:49:32.6159677Z       echo "Adding $addon to build queue"
+2025-10-16T05:49:32.6160565Z       changed_addons+=("\"$addon\"")
+2025-10-16T05:49:32.6161352Z     else
+2025-10-16T05:49:32.6162203Z       # Check if files in this addon changed (works for both push and PR)
+2025-10-16T05:49:32.6163755Z       if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "^$addon/"; then
+2025-10-16T05:49:32.6165025Z         echo "Changes detected in $addon"
+2025-10-16T05:49:32.6165917Z         changed_addons+=("\"$addon\"")
+2025-10-16T05:49:32.6166702Z       fi
+2025-10-16T05:49:32.6167169Z     fi
+2025-10-16T05:49:32.6167630Z   fi
+2025-10-16T05:49:32.6168081Z done
+2025-10-16T05:49:32.6168622Z 
+2025-10-16T05:49:32.6169214Z changed=$(printf ",%s" "${changed_addons[@]}")
+2025-10-16T05:49:32.6170141Z changed="[${changed:1}]"
+2025-10-16T05:49:32.6170803Z 
+2025-10-16T05:49:32.6171376Z echo "changed=${changed}" >> $GITHUB_OUTPUT
+2025-10-16T05:49:32.6172441Z echo "addons=${changed}" >> $GITHUB_OUTPUT
+2025-10-16T05:49:32.6173274Z 
+2025-10-16T05:49:32.6173739Z if [ "$changed" == "[]" ]; then
+2025-10-16T05:49:32.6174552Z   echo "No add-on changes detected"
+2025-10-16T05:49:32.6175329Z else
+2025-10-16T05:49:32.6175867Z   echo "Changed add-ons: $changed"
+2025-10-16T05:49:32.6176628Z fi
+2025-10-16T05:49:32.6213149Z shell: /usr/bin/bash -e {0}
+2025-10-16T05:49:32.6213849Z ##[endgroup]
+2025-10-16T05:49:32.6289378Z Event type: push
+2025-10-16T05:49:32.6311446Z build_all=false
+2025-10-16T05:49:32.6312288Z Searching for addons...
+2025-10-16T05:49:32.6330568Z Checking directory: bluetooth-wifi-setup
+2025-10-16T05:49:32.6351059Z Checking directory: can-mqtt-bridge
+2025-10-16T05:49:32.6377161Z No add-on changes detected
+2025-10-16T05:49:32.6541055Z Post job cleanup.
+2025-10-16T05:49:32.7485042Z [command]/usr/bin/git version
+2025-10-16T05:49:32.7521707Z git version 2.51.0
+2025-10-16T05:49:32.7568235Z Temporarily overriding HOME='/home/runner/work/_temp/61bc93cb-bbe4-4874-aaaa-17c8497a24ac' before making global git config changes
+2025-10-16T05:49:32.7572672Z Adding repository directory to the temporary git global config as a safe directory
+2025-10-16T05:49:32.7576028Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ha-addons/ha-addons
+2025-10-16T05:49:32.7613521Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2025-10-16T05:49:32.7650254Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2025-10-16T05:49:32.7876924Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2025-10-16T05:49:32.7898111Z http.https://github.com/.extraheader
+2025-10-16T05:49:32.7911445Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2025-10-16T05:49:32.7942143Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2025-10-16T05:49:32.8279447Z Evaluate and set job outputs
+2025-10-16T05:49:32.8286445Z Set output 'changed_addons'
+2025-10-16T05:49:32.8288795Z Set output 'changed'
+2025-10-16T05:49:32.8290115Z Cleaning up orphan processes
