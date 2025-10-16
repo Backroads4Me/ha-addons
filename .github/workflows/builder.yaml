@@ -22,17 +22,13 @@ jobs:
         with:
           fetch-depth: 2
 
-      - name: Get changed files
-        id: changed_files
-        uses: jitterbit/get-changed-files@v1
-        if: github.event_name != 'push' || !contains(github.event.head_commit.message, '[skip ci]')
-        continue-on-error: true
-
       - name: Find add-on directories with changes
         id: changed_addons
         run: |
           declare -a changed_addons
           build_all=false
+
+          echo "Event type: ${{ github.event_name }}"
 
           # Check if any config.yaml changed (indicates version bump/release)
           if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
@@ -48,8 +44,12 @@ jobs:
             build_all=true
           fi
 
+          echo "build_all=$build_all"
+          echo "Searching for addons..."
+
           # Find all addons
           for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
+            echo "Checking directory: $addon"
             # Skip non-addon directories
             if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
               continue
@@ -62,18 +62,10 @@ jobs:
                 echo "Adding $addon to build queue"
                 changed_addons+=("\"$addon\"")
               else
-                # Check if files in this addon changed
-                if [[ "${{ github.event_name }}" == "push" ]]; then
-                  if git diff --name-only HEAD~1 HEAD | grep -q "^$addon/"; then
-                    echo "Changes detected in $addon"
-                    changed_addons+=("\"$addon\"")
-                  fi
-                else
-                  # On PR, check changed files
-                  if echo "${{ steps.changed_files.outputs.all }}" | grep -q "$addon"; then
-                    echo "Changes detected in $addon"
-                    changed_addons+=("\"$addon\"")
-                  fi
+                # Check if files in this addon changed (works for both push and PR)
+                if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "^$addon/"; then
+                  echo "Changes detected in $addon"
+                  changed_addons+=("\"$addon\"")
                 fi
               fi
             fi
