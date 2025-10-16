@@ -164,7 +164,14 @@ jobs:
 
       - name: Log in to GitHub Container Registry
         if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        run: |
+          if [ -n "${{ secrets.GHCR_PAT }}" ]; then
+            echo "Logging in to GHCR with Personal Access Token"
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          else
+            echo "Logging in to GHCR with default GITHUB_TOKEN"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          fi
 
       - name: Pull base image
         if: steps.info.outputs.supported == 'true'

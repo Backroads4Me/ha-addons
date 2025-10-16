@@ -2,7 +2,7 @@
 
 ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest
 ARG BUILD_VERSION=0.0.0
-FROM --platform=linux/amd64 ${BUILD_FROM}
+FROM ${BUILD_FROM}
 
 # Add metadata labels
 ARG BUILD_VERSION
