@@ -184,8 +184,6 @@ jobs:
           build-args: |
             BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
           provenance: false
 
       - name: Build addon (test mode for PRs)
