@@ -136,21 +136,54 @@ jobs:
       - name: Set up Docker Buildx
         if: steps.info.outputs.supported == 'true'
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+
+      - name: Set lowercase owner
+        if: steps.info.outputs.supported == 'true'
+        id: lowercase
+        run: echo "OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Log in to GitHub Container Registry
         if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ github.repository_owner }}
+          username: ${{ env.OWNER }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build add-on
+      - name: Pull base image
         if: steps.info.outputs.supported == 'true'
-        uses: home-assistant/builder@master
+        run: docker pull ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+
+      - name: Build and push addon
+        if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
         with:
-          args: |
-            --${{ matrix.arch }} \
-            --target ${{ matrix.addon }} \
-            --docker-hub ghcr.io/${{ github.repository_owner }} \
-            ${{ github.event_name != 'pull_request' && '--all' || '--test' }}
+          context: ./${{ matrix.addon }}
+          file: ./${{ matrix.addon }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:${{ steps.info.outputs.version }}
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:latest
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+            BUILD_VERSION=${{ steps.info.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
+
+      - name: Build addon (test mode for PRs)
+        if: steps.info.outputs.supported == 'true' && github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.addon }}
+          file: ./${{ matrix.addon }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          build-args: |
+            BUILD_FROM=ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+            BUILD_VERSION=${{ steps.info.outputs.version }}
+          provenance: false
