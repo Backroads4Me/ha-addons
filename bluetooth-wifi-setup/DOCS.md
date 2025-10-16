@@ -1,12 +1,6 @@
-<div align="center">
-
-<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/bluetooth-wifi-setup/logo.png" alt="Bluetooth WiFi Setup Logo" width="200"/>
-
 # Bluetooth WiFi Setup
 
 Configure WiFi on your Home Assistant OS installation via Bluetooth using the BTBerryWifi mobile app.
-
-</div>
 
 ## Overview
 

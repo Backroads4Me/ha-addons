@@ -1,12 +1,6 @@
-<div align="center">
-
-<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/can-mqtt-bridge/logo.png" alt="CAN to MQTT Bridge Logo" width="200"/>
-
 # CAN to MQTT Bridge
 
 A Home Assistant add-on that initializes CAN interfaces and provides bidirectional bridging to MQTT.
-
-</div>
 
 ## Configuration
 
