@@ -88,6 +88,9 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.init.outputs.changed != '[]'
     name: Build ${{ matrix.addon }} add-on
+    permissions:
+      contents: read
+      packages: write
     strategy:
       matrix:
         addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
