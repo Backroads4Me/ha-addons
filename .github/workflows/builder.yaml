@@ -147,7 +147,7 @@ jobs:
 
       - name: Build add-on
         if: steps.info.outputs.supported == 'true'
-        uses: home-assistant/builder@2024.03.0
+        uses: home-assistant/builder@master
         with:
           args: |
             ${{ github.event_name == 'pull_request' && '--test' || '' }} \
