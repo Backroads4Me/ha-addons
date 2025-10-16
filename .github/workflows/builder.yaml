@@ -7,6 +7,7 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 jobs:
   init:
@@ -31,6 +32,23 @@ jobs:
         id: changed_addons
         run: |
           declare -a changed_addons
+          build_all=false
+
+          # Check if any config.yaml changed (indicates version bump/release)
+          if [[ "${{ github.event_name }}" == "push" ]] || [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "config.yaml$"; then
+              echo "config.yaml changes detected - building all addons"
+              build_all=true
+            fi
+          fi
+
+          # Manual trigger also builds all
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger - building all addons"
+            build_all=true
+          fi
+
+          # Find all addons
           for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
             # Skip non-addon directories
             if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
@@ -39,18 +57,23 @@ jobs:
 
             # Check if addon has config.yaml
             if [[ -f "$addon/config.yaml" ]]; then
-              # Check if files in this addon changed
-              if [[ "${{ github.event_name }}" == "push" ]]; then
-                # On push, always build (or check for changes in commit)
-                if git diff --name-only HEAD~1 HEAD | grep -q "^$addon/"; then
-                  echo "Changes detected in $addon"
-                  changed_addons+=("\"$addon\"")
-                fi
+              if [[ "$build_all" == "true" ]]; then
+                # Build all addons
+                echo "Adding $addon to build queue"
+                changed_addons+=("\"$addon\"")
               else
-                # On PR, check changed files
-                if echo "${{ steps.changed_files.outputs.all }}" | grep -q "$addon"; then
-                  echo "Changes detected in $addon"
-                  changed_addons+=("\"$addon\"")
+                # Check if files in this addon changed
+                if [[ "${{ github.event_name }}" == "push" ]]; then
+                  if git diff --name-only HEAD~1 HEAD | grep -q "^$addon/"; then
+                    echo "Changes detected in $addon"
+                    changed_addons+=("\"$addon\"")
+                  fi
+                else
+                  # On PR, check changed files
+                  if echo "${{ steps.changed_files.outputs.all }}" | grep -q "$addon"; then
+                    echo "Changes detected in $addon"
+                    changed_addons+=("\"$addon\"")
+                  fi
                 fi
               fi
             fi
