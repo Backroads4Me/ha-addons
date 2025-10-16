@@ -18,6 +18,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install required packages
 # Note: Using Alpine packages for the Home Assistant base images
+# NetworkManager is accessed via host D-Bus (host_dbus: true), not installed in container
 RUN apk add --no-cache \
     python3 \
     py3-pip \
@@ -28,8 +29,6 @@ RUN apk add --no-cache \
     bluez-libs \
     bluez-deprecated \
     dbus \
-    networkmanager \
-    networkmanager-wifi \
     && rm -rf /var/cache/apk/*
 
 # Copy addon files

@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - 2025-10-16
+
+### Fixed
+
+- Fixed NetworkManager detection to use D-Bus API instead of `nmcli` command
+- NetworkManager is accessed via host D-Bus (`host_dbus: true`), not as an installed binary
+
+### Changed
+
+- Removed unnecessary `networkmanager` and `networkmanager-wifi` packages from Dockerfile
+- Updated NetworkManager check to verify D-Bus accessibility
+- Improved error messages for NetworkManager troubleshooting
+
 ## [0.1.2] - 2025-10-16
 
 ### Fixed

@@ -30,10 +30,10 @@ if [ ! -d /sys/class/net/wlan0 ]; then
     bashio::log.warning "The addon may not function correctly without a WiFi adapter."
 fi
 
-# Check if NetworkManager is accessible
-if ! nmcli --version > /dev/null 2>&1; then
-    bashio::log.error "NetworkManager is not accessible!"
-    bashio::log.error "This addon requires NetworkManager to configure WiFi."
+# Check if NetworkManager is accessible via D-Bus
+if ! dbus-send --system --print-reply --dest=org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.DBus.Introspectable.Introspect > /dev/null 2>&1; then
+    bashio::log.error "NetworkManager is not accessible via D-Bus!"
+    bashio::log.error "This addon requires NetworkManager D-Bus API to configure WiFi."
     exit 1
 fi
 
