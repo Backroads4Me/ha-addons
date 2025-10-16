@@ -17,10 +17,10 @@ bashio::log.info "Timeout: ${TIMEOUT} minutes"
 bashio::log.info "Log level: ${LOG_LEVEL}"
 bashio::log.info "Device name: ${DEVICE_NAME}"
 
-# Check for Bluetooth adapter
-if [ ! -e /dev/hci0 ]; then
-    bashio::log.error "Bluetooth adapter /dev/hci0 not found!"
-    bashio::log.error "Please ensure your system has a Bluetooth adapter and it is accessible."
+# Check for Bluetooth adapter via sysfs
+if ! ls /sys/class/bluetooth/hci* > /dev/null 2>&1; then
+    bashio::log.error "No Bluetooth adapter found!"
+    bashio::log.error "Please ensure your system has a Bluetooth adapter and BlueZ is accessible."
     exit 1
 fi
 

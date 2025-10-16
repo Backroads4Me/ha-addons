@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2025-10-16
+
+### Fixed
+
+- Fixed Bluetooth adapter detection to use sysfs (`/sys/class/bluetooth/`) instead of device nodes (`/dev/hci0`)
+- Removed unnecessary device mapping from config.yaml - addon now uses BlueZ D-Bus API properly
+
+### Changed
+
+- Updated documentation to reflect proper Bluetooth detection method
+- Improved error messages for Bluetooth adapter troubleshooting
+
 ## [0.1.1] - 2025-10-16
 
 ### Changed
@@ -51,7 +63,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Known Limitations
 
-- Requires Bluetooth adapter accessible as `/dev/hci0`
+- Requires Bluetooth adapter accessible via BlueZ D-Bus API
 - WiFi adapter expected at `wlan0` (warning if not found)
 - Requires BTBerryWifi mobile app (iOS/Android)
 - Premium app features (encryption) require separate purchase

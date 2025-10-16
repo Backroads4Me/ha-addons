@@ -16,7 +16,7 @@ Before using this addon, ensure you have:
 
 **Hardware:**
 
-- Raspberry Pi (or compatible) with Bluetooth adapter (accessible as `/dev/hci0`)
+- Raspberry Pi (or compatible) with Bluetooth adapter
 - WiFi adapter (accessible as `wlan0`)
 
 **Software:**
@@ -91,11 +91,12 @@ Follow the same steps as initial setup. The addon will configure the new network
 
 ### Addon fails to start
 
-**Error: "Bluetooth adapter /dev/hci0 not found!"**
+**Error: "No Bluetooth adapter found!"**
 
 - Ensure your device has a Bluetooth adapter
-- Check that the Bluetooth adapter is accessible to Home Assistant OS
-- Verify the adapter appears in `Supervisor → System → Hardware`
+- Check that Bluetooth is enabled in Home Assistant
+- Verify the adapter appears in `Settings → System → Hardware`
+- Run `bluetoothctl list` in the Terminal addon to confirm BlueZ can see the adapter
 
 **Error: "WiFi adapter wlan0 not found!"**
 
