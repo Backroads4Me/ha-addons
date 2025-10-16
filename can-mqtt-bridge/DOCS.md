@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/can-mqtt-bridge/can-mqtt-bridge-logo.svg" alt="CAN to MQTT Bridge Logo" width="200"/>
+<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/can-mqtt-bridge/logo.png" alt="CAN to MQTT Bridge Logo" width="200"/>
 
 # CAN to MQTT Bridge
 

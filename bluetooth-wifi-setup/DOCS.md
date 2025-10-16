@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/bluetooth-wifi-setup/bluetooth-wifi-setup.svg" alt="Bluetooth WiFi Setup Logo" width="200"/>
+<img src="https://raw.githubusercontent.com/Backroads4Me/ha-addons/main/bluetooth-wifi-setup/logo.png" alt="Bluetooth WiFi Setup Logo" width="200"/>
 
 # Bluetooth WiFi Setup
 
@@ -36,11 +36,13 @@ This addon enables you to configure WiFi network settings on headless Home Assis
 - Home Assistant OS installed and running
 
 **Tested Hardware:**
+
 - Raspberry Pi 5
 
 ### Mobile App
 
 Download the **BTBerryWifi** app:
+
 - **iOS**: Search "BTBerryWifi" on Apple App Store
 - **Android**: Search "BTBerryWifi" on Google Play Store
 
@@ -54,39 +56,45 @@ Download the **BTBerryWifi** app:
 ## Configuration
 
 ```yaml
-bluetooth_timeout: 15        # Minutes before auto-shutdown (1-1440)
-log_level: info             # Logging level: debug, info, warning, error
-device_name: BTBerryWifi    # BLE advertised name
-keep_alive: false           # Keep addon running indefinitely (security risk!)
-encryption_enabled: false   # Enable Bluetooth encryption (premium feature)
-password: ""                # Password for encryption/lock feature (optional)
+bluetooth_timeout: 15 # Minutes before auto-shutdown (1-1440)
+log_level: info # Logging level: debug, info, warning, error
+device_name: BTBerryWifi # BLE advertised name
+keep_alive: false # Keep addon running indefinitely (security risk!)
+encryption_enabled: false # Enable Bluetooth encryption (premium feature)
+password: "" # Password for encryption/lock feature (optional)
 ```
 
 ### Configuration Options Explained
 
 #### `bluetooth_timeout`
+
 - **Default**: `15` (minutes)
 - **Range**: 1-1440 (1 minute to 24 hours)
 - **Description**: How long the BLE server stays active before automatically shutting down. This limits security exposure.
 
 #### `log_level`
+
 - **Default**: `info`
 - **Options**: `debug`, `info`, `warning`, `error`
 - **Description**: Controls the verbosity of addon logs. Use `debug` for troubleshooting.
 
 #### `device_name`
+
 - **Default**: `BTBerryWifi`
 - **Description**: The Bluetooth device name that appears in the mobile app when scanning. The actual name will be `{device_name}-{hostname}`.
 
 #### `keep_alive`
+
 - **Default**: `false`
 - **Description**: If `true`, the addon will NOT auto-shutdown after the timeout. **WARNING**: This poses a security risk as the BLE server remains accessible indefinitely. Only enable temporarily when needed.
 
 #### `encryption_enabled`
+
 - **Default**: `false`
 - **Description**: Premium BTBerryWifi app feature. Enables encryption of Bluetooth communication. Requires the premium version of the mobile app.
 
 #### `password`
+
 - **Default**: (empty)
 - **Description**: Password for encryption/lock feature. If encryption is enabled but no password is set, the hostname will be used as the password.
 
@@ -116,16 +124,19 @@ The addon works with NetworkManager, which supports multiple WiFi profiles. You 
 ### Addon fails to start
 
 **Error: "Bluetooth adapter /dev/hci0 not found!"**
+
 - Ensure your device has a Bluetooth adapter
 - Check that the Bluetooth adapter is accessible to Home Assistant OS
 - Verify the adapter appears in `Supervisor → System → Hardware`
 
 **Error: "WiFi adapter wlan0 not found!"**
+
 - Your WiFi adapter may have a different name
 - This is a warning; the addon may still work
 - Check available network interfaces in Home Assistant OS
 
 **Error: "NetworkManager is not accessible!"**
+
 - NetworkManager is required for this addon to function
 - This should be available by default on Home Assistant OS
 - Try restarting Home Assistant
@@ -178,6 +189,7 @@ The BTBerryWifi mobile app is developed by [BluePie Apps](https://bluepieapps.co
 ## Support
 
 For issues related to:
+
 - **This addon**: Report issues on the addon's GitHub repository
 - **BTBerryWifi app**: Contact BluePie Apps
 - **Home Assistant**: Visit the [Home Assistant Community](https://community.home-assistant.io/)

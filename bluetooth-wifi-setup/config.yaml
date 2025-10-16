@@ -14,6 +14,7 @@ hassio_api: true
 privileged:
   - SYS_ADMIN
   - NET_ADMIN
+  - SYS_RAWIO
 devices:
   - /dev/hci0
 apparmor: true
