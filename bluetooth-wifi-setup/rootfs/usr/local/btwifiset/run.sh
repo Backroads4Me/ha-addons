@@ -81,6 +81,13 @@ bashio::log.info "Searching for the connection..."
 
 cd /usr/local/btwifiset
 
+# Test Python import before exec to catch import errors
+python3 -c "import sys; sys.path.insert(0, '/usr/local/btwifiset'); import btwifiset" 2>&1
+if [ $? -ne 0 ]; then
+    bashio::log.error "Python script failed to import! Check for syntax or import errors."
+    exit 1
+fi
+
 exec python3 /usr/local/btwifiset/btwifiset.py \
     --timeout "${TIMEOUT}" \
     --device-name "${DEVICE_NAME}" \
