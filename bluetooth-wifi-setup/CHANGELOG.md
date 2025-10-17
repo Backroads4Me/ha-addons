@@ -1,3 +1,13 @@
+## [0.1.12] - 2025-10-16
+
+### Fixed
+
+- Fixed Python indentation error
+
+### Changed
+
+- Migrated to monorepo structure at https://github.com/Backroads4Me/ha-addons
+
 ## [0.1.11] - 2025-10-16
 
 - Removed logging noise

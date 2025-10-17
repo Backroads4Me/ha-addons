@@ -2313,36 +2313,36 @@ class Blue:
         
         Blue.counter += 1
 
-          try:
-              pythonDict = dbus_to_python(changed)
+        try:
+            pythonDict = dbus_to_python(changed)
 
-              # Log important connection state changes (suppress RSSI noise)
-              if 'Connected' in pythonDict:
-                  device = path.split('/')[-1]
-                  mLOG.log(f"Bluetooth device {device}: Connected = {pythonDict['Connected']}")
+            # Log important connection state changes (suppress RSSI noise)
+            if 'Connected' in pythonDict:
+                device = path.split('/')[-1]
+                mLOG.log(f"Bluetooth device {device}: Connected = {pythonDict['Connected']}")
 
-              if 'ServicesResolved' in pythonDict:
-                  device = path.split('/')[-1]
-                  status = "ready" if pythonDict['ServicesResolved'] else "disconnected"
-                  mLOG.log(f"Bluetooth device {device}: Services {status}")
+            if 'ServicesResolved' in pythonDict:
+                device = path.split('/')[-1]
+                status = "ready" if pythonDict['ServicesResolved'] else "disconnected"
+                mLOG.log(f"Bluetooth device {device}: Services {status}")
 
-              # Handle graceful disconnection detection
-              # When phone app ends its session, it sends a graceful disconnect message which sets user_requested_endSession to True.
-              # This is recognized here - code could be inserted to launch actions when the user disconnects.
-              # Note: Phone app may disconnect without sending the graceful message (out of range, wrong password, etc.)
-              # In that case disconnection is detected by ServicesResolved=False but user_requested_endSession is not set.
-              Blue.user_ended_session = (
-                  Blue.user_requested_endSession and
-                  not pythonDict.get("ServicesResolved", True))  # Use .get() with default to avoid KeyError
-              if Blue.user_ended_session:
-                  mLOG.log("User has notified BT session/disconnected")
-                  # ADD ANY ACTION ON USER ENDING SESSION HERE
-                  Blue.user_ended_session = False
-                  Blue.user_requested_endSession = False
+            # Handle graceful disconnection detection
+            # When phone app ends its session, it sends a graceful disconnect message which sets user_requested_endSession to True.
+            # This is recognized here - code could be inserted to launch actions when the user disconnects.
+            # Note: Phone app may disconnect without sending the graceful message (out of range, wrong password, etc.)
+            # In that case disconnection is detected by ServicesResolved=False but user_requested_endSession is not set.
+            Blue.user_ended_session = (
+                Blue.user_requested_endSession and
+                not pythonDict.get("ServicesResolved", True))  # Use .get() with default to avoid KeyError
+            if Blue.user_ended_session:
+                mLOG.log("User has notified BT session/disconnected")
+                # ADD ANY ACTION ON USER ENDING SESSION HERE
+                Blue.user_ended_session = False
+                Blue.user_requested_endSession = False
 
-          except Exception as e:
-              # Log exceptions instead of silently swallowing them
-              mLOG.log(f"Error in properties_changed: {e}", level=mLOG.DEV)        
+        except Exception as e:
+            # Log exceptions instead of silently swallowing them
+            mLOG.log(f"Error in properties_changed: {e}", level=mLOG.DEV)        
 
 class Advertise(dbus.service.Object):
 
