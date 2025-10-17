@@ -3,6 +3,7 @@
 ### Fixed
 
 - Fixed a `ModuleNotFoundError` by adding the `app` directory to the Docker image. This was missed during the v0.3.0 refactoring.
+- Fixed an `AttributeError` for `dbus.service` by adding the missing `import dbus.service` statement in `app/ble/core.py`.
 
 ## [0.3.0] - 2025-10-17
 

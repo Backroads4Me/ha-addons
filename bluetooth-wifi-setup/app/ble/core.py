@@ -1,5 +1,6 @@
 
 import dbus
+import dbus.service
 
 from ..utils.logger import mLOG
 from ..wifi.utils import WifiUtil
