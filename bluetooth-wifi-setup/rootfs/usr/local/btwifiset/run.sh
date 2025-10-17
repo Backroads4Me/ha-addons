@@ -88,7 +88,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-exec python3 /usr/local/btwifiset/btwifiset.py \
+exec python3 -u /usr/local/btwifiset/btwifiset.py \
     --timeout "${TIMEOUT}" \
     --device-name "${DEVICE_NAME}" \
     --console
