@@ -3220,18 +3220,28 @@ NEED_RESTART = False
 restart_count = 0
 
 def btRestart():
-        cmd = "systemctl stop bluetooth"
-        mLOG.log("stopping bluetooth service")
-        rstop = subprocess.run(cmd, shell=True,text=True, timeout = 10)
-        sleep(1)
-        cmd = "systemctl start bluetooth"
-        mLOG.log(f"starting bluetooth service - restart count = {restart_count}")
-        rstart = subprocess.run(cmd, shell=True,text=True, timeout = 10)
-        sleep(1)
+        mLOG.log(f"Restarting bluetooth service via D-Bus (restart count: {restart_count})")
+        try:
+            bus = dbus.SystemBus()
+            systemd1 = bus.get_object('org.freedesktop.systemd1', '/org/freedesktop/systemd1')
+            manager = dbus.Interface(systemd1, 'org.freedesktop.systemd1.Manager')
+            manager.RestartUnit('bluetooth.service', 'fail')
+            mLOG.log("Bluetooth service restart command sent via D-Bus.")
+            sleep(2)  # Give it a moment for the service to restart
+        except Exception as e:
+            mLOG.log(f"Failed to restart bluetooth via D-Bus: {e}", level=mLOG.CRITICAL)
+
+        # Check status after attempting restart
         cmd = "systemctl --no-pager status bluetooth"
-        mLOG.log("checking bluetooth")
-        s = subprocess.run(cmd, shell=True, capture_output=True,encoding='utf-8',text=True, timeout=10)
-        mLOG.log(s)
+        mLOG.log("checking bluetooth status after restart")
+        try:
+            s = subprocess.run(cmd, shell=True, capture_output=True, encoding='utf-8', text=True, timeout=10)
+            if s.stdout:
+                mLOG.log(s.stdout)
+            if s.stderr:
+                mLOG.log(s.stderr, level=mLOG.INFO) # Status might print to stderr on some systems
+        except Exception as e:
+            mLOG.log(f"An unexpected error occurred while checking bluetooth status: {e}", level=mLOG.CRITICAL)
 
 
 
