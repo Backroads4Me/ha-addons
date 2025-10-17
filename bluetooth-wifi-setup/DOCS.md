@@ -3,11 +3,11 @@
 ## How It Works
 
 1. Start this addon on your Home Assistant system
-2. The addon creates a Bluetooth server that advertises as `BTBerryWifi-{hostname}`
+2. The addon creates a Bluetooth server that advertises as `BTBerryWifi` (or your configured device name)
 3. Connect to it using the BTBerryWifi mobile app (iOS/Android)
 4. The app scans for available WiFi networks
 5. Select a network and enter the password
-6. The addon configures NetworkManager and connects to the network
+6. The addon configures WiFi via the Home Assistant Supervisor API
 7. After a configurable timeout (default: 15 minutes), the addon automatically shuts down
 
 ## Prerequisites
@@ -53,7 +53,7 @@ password: "" # Password for encryption/lock feature (optional)
 #### `device_name`
 
 - **Default**: `BTBerryWifi`
-- **Description**: The Bluetooth device name that appears in the mobile app when scanning. The actual name will be `{device_name}-{hostname}`.
+- **Description**: The Bluetooth device name that appears in the mobile app when scanning. Uses the configured name exactly as entered. If left blank, falls back to the system hostname.
 
 #### `keep_alive`
 
@@ -78,7 +78,7 @@ password: "" # Password for encryption/lock feature (optional)
 2. Open the BTBerryWifi app on your phone
 3. Enable Bluetooth on your phone
 4. Scan for devices in the app
-5. Connect to `BTBerryWifi-{your-hostname}`
+5. Connect to the Bluetooth device (default name: `BTBerryWifi`)
 6. The app will display available WiFi networks
 7. Select your network and enter the password
 8. Wait for confirmation of successful connection
@@ -104,17 +104,18 @@ Follow the same steps as initial setup. The addon will configure the new network
 - This is a warning; the addon may still work
 - Check available network interfaces in Home Assistant OS
 
-**Error: "NetworkManager is not accessible!"**
+**Error: "SUPERVISOR_TOKEN not found!" or "Supervisor API is not accessible!"**
 
-- NetworkManager is required for this addon to function
+- The Supervisor API is required for this addon to function
 - This should be available by default on Home Assistant OS
-- Try restarting Home Assistant
+- Ensure `hassio_api: true` is set in config.yaml (it should be by default)
+- Try restarting the addon or Home Assistant
 
 ### Cannot find BLE device in mobile app
 
 - Ensure Bluetooth is enabled on your phone
 - Confirm the addon is running (check logs)
-- The device name should appear as `BTBerryWifi-{hostname}`
+- The device name should appear as configured (default: `BTBerryWifi`)
 - Try moving your phone closer to the Home Assistant device
 - Check addon logs for errors
 

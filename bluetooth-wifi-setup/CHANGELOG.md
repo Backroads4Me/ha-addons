@@ -1,3 +1,25 @@
+## [0.2.0] - 2025-10-17
+
+### Changed
+
+- **BREAKING**: Replaced all NetworkManager command-line (nmcli) calls with Home Assistant Supervisor REST API
+
+### Added
+
+- New `SupervisorAPI` class for network management via HTTP requests to Supervisor API
+- Supervisor token validation in startup script
+
+### Fixed
+
+- Bluetooth device name configuration now properly respects the configured name
+- Device name only falls back to hostname when configuration is blank (not appending both)
+
+### Removed
+
+- Complete removal of nmcli subprocess calls (~20+ instances)
+- Removed `networkmanager` and `networkmanager-wifi` packages from Dockerfile
+- Removed unused `/usr/local/btwifiset/` directory structure
+
 ## [0.1.12] - 2025-10-16
 
 ### Fixed

@@ -22,6 +22,9 @@ import subprocess
 import sys
 import syslog
 import time
+import urllib.request
+import urllib.parse
+import urllib.error
 
 
 class mLOG:
@@ -76,11 +79,195 @@ class mLOG:
             pass
 
 
+class SupervisorAPI:
+    """
+    Helper class for interacting with Home Assistant Supervisor REST API
+    Replaces nmcli commands for network management within HA addons
+    """
+    BASE_URL = "http://supervisor"
+    INTERFACE = "wlan0"
+
+    def __init__(self):
+        self.token = os.environ.get('SUPERVISOR_TOKEN', '')
+        if not self.token:
+            mLOG.log("WARNING: SUPERVISOR_TOKEN not found in environment", level=mLOG.INFO)
+
+    def _make_request(self, endpoint, method='GET', data=None):
+        """
+        Make authenticated HTTP request to Supervisor API
+        Returns: (success: bool, response_data: dict or None, error_msg: str or None)
+        """
+        url = f"{self.BASE_URL}{endpoint}"
+        headers = {
+            'Authorization': f'Bearer {self.token}',
+            'Content-Type': 'application/json'
+        }
+
+        try:
+            if method == 'POST':
+                json_data = json.dumps(data).encode('utf-8') if data else b'{}'
+                req = urllib.request.Request(url, data=json_data, headers=headers, method='POST')
+            else:
+                req = urllib.request.Request(url, headers=headers, method='GET')
+
+            with urllib.request.urlopen(req, timeout=30) as response:
+                response_body = response.read().decode('utf-8')
+                result = json.loads(response_body) if response_body else {}
+                mLOG.log(f"API {method} {endpoint}: success")
+                return (True, result, None)
+
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode('utf-8') if e.fp else ''
+            mLOG.log(f"API {method} {endpoint} failed: HTTP {e.code} - {error_body}", level=mLOG.INFO)
+            return (False, None, f"HTTP {e.code}: {error_body}")
+        except urllib.error.URLError as e:
+            mLOG.log(f"API {method} {endpoint} failed: {str(e.reason)}", level=mLOG.INFO)
+            return (False, None, f"Connection error: {str(e.reason)}")
+        except Exception as e:
+            mLOG.log(f"API {method} {endpoint} failed: {str(e)}", level=mLOG.INFO)
+            return (False, None, str(e))
+
+    def get_access_points(self):
+        """
+        Scan for WiFi access points
+        Returns: list of dict with keys: ssid, signal, encrypted (bool)
+        """
+        success, data, error = self._make_request(f'/network/interface/{self.INTERFACE}/accesspoints')
+        if not success:
+            mLOG.log(f"Failed to scan access points: {error}", level=mLOG.INFO)
+            return []
+
+        access_points = []
+        try:
+            # Supervisor returns: {"result": "ok", "data": {"accesspoints": [...]}}
+            aps = data.get('data', {}).get('accesspoints', [])
+            for ap in aps:
+                # Map Supervisor AP format to our internal format
+                ssid = ap.get('ssid', '')
+                if not ssid or ssid == '--':
+                    continue
+
+                # Signal strength: Supervisor gives dBm (-100 to 0), convert to 0-5 scale
+                signal_dbm = ap.get('signal', -100)
+                signal_strength = max(0, min(5, int((signal_dbm + 100) / 20)))
+
+                # Check if network is encrypted (mode != 'open')
+                auth_mode = ap.get('mode', 'wpa-psk').lower()
+                encrypted = (auth_mode != 'open')
+
+                access_points.append({
+                    'ssid': ssid,
+                    'signal': signal_strength,
+                    'encrypt': encrypted
+                })
+
+            mLOG.log(f"Found {len(access_points)} access points")
+            return access_points
+
+        except Exception as e:
+            mLOG.log(f"Error parsing access points: {e}", level=mLOG.INFO)
+            return []
+
+    def get_interface_info(self):
+        """
+        Get current interface configuration and connection status
+        Returns: dict with connection info or None on error
+        """
+        success, data, error = self._make_request(f'/network/interface/{self.INTERFACE}/info')
+        if not success:
+            mLOG.log(f"Failed to get interface info: {error}", level=mLOG.INFO)
+            return None
+
+        try:
+            # Returns: {"result": "ok", "data": {...}}
+            interface_data = data.get('data', {})
+            return interface_data
+        except Exception as e:
+            mLOG.log(f"Error parsing interface info: {e}", level=mLOG.INFO)
+            return None
+
+    def update_interface(self, ssid, password="", auth_mode="wpa-psk", hidden=False):
+        """
+        Configure and connect to a WiFi network
+        Args:
+            ssid: Network SSID
+            password: Network password (empty for open networks)
+            auth_mode: Authentication mode ('open' or 'wpa-psk')
+            hidden: Whether network broadcasts SSID
+        Returns: (success: bool, error_msg: str or None)
+        """
+        # Build the configuration payload
+        config = {
+            "ipv4": {"method": "auto"},
+            "ipv6": {"method": "auto"},
+            "wifi": {
+                "mode": "infrastructure",
+                "ssid": ssid
+            }
+        }
+
+        # Add authentication if not open network
+        if password and auth_mode != "open":
+            config["wifi"]["auth"] = auth_mode
+            config["wifi"]["psk"] = password
+        else:
+            config["wifi"]["auth"] = "open"
+
+        # Hidden network support
+        if hidden:
+            config["wifi"]["hidden"] = True
+
+        mLOG.log(f"Updating interface with SSID: {ssid}, auth: {config['wifi'].get('auth', 'open')}, hidden: {hidden}")
+
+        success, data, error = self._make_request(
+            f'/network/interface/{self.INTERFACE}/update',
+            method='POST',
+            data=config
+        )
+
+        if not success:
+            return (False, error)
+
+        # Wait briefly for connection to establish
+        time.sleep(2)
+        return (True, None)
+
+    def disconnect_interface(self):
+        """
+        Disconnect from current WiFi network
+        Returns: (success: bool, error_msg: str or None)
+        """
+        # To disconnect, we set the interface to disabled or manual with no config
+        config = {
+            "enabled": False,
+            "ipv4": {"method": "disabled"},
+            "ipv6": {"method": "disabled"}
+        }
+
+        success, data, error = self._make_request(
+            f'/network/interface/{self.INTERFACE}/update',
+            method='POST',
+            data=config
+        )
+
+        if not success:
+            return (False, error)
+
+        return (True, None)
+
+    def test_connection(self):
+        """
+        Test if Supervisor API is accessible
+        Returns: bool
+        """
+        success, _, _ = self._make_request('/supervisor/ping')
+        return success
+
 
 #not used anymore: FILEDIR = f"{pathlib.Path(__file__).parent.resolve()}/"
 PYTHONEXEC = f"{sys.executable}"
 NETWORK_MANAGER_CONNECTION_TIMEOUT = 25 # used with Network Manager implementations:  connection timeout in seconds ()
-#connection timeout:  time in seconds where nmcli will wait for a connection before aborting (typically password is wrong)
+#connection timeout:  time in seconds connection attempt will wait for a connection before aborting (typically password is wrong)
 
 """
 note to self:
@@ -345,7 +532,7 @@ class Wpa_Network:
                 - the key is the network NAME given by Network Manager (which may be different from the ssid)
                 - the value is this Wpa_Network object
         by storing the network name in the object, the object can be passed around and operations 
-            that need the network name for nmcli can be performed without having to seach for the ssid 
+            that need the network name for network manager can be performed without having to seach for the ssid 
             in all the values of the directory to find the key (network name)
         Note: for wpa_supplicant implementations - store the ssid in the network name.
         '''
@@ -502,45 +689,32 @@ class WPAConf:
         mLOG.log(f'Saved wpa config to file: {out}')
 
     @staticmethod
-    def nmcli_known_networks():
-        #query Network manager for networks it has created 
-        # create a Wpa_network with the correct lock status and network name (given by Netwrok Manager)
-        # return in a dictionary where ket is the network name and values are the wpa_networks
-        #this will be stored in wpa_supplicant_ssids
-         #nmcli -f TYPE,NAME con show returns
+    def supervisor_known_networks(supervisor_api):
+        """
+        Query Supervisor API for current WiFi configuration.
+        With Supervisor API, we track known networks internally since
+        Supervisor manages the entire interface config (not individual profiles).
+        This method primarily determines if we're currently connected.
+        Returns: dict of known networks (may be empty if no connection history)
+        """
         known_networks = {}
-        """
-        TYPE      NAME       
-            wifi      NKSAN-STAR 
-            loopback  lo         
-            wifi      nksan      
-            wifi      PianoLED    
-        """
-        #c this will return ssid with spaces as one entry in foundSSIDs
-        out = subprocess.run("nmcli -f TYPE,NAME con show", shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-        networks = re.findall(r"(\S+)\s+(.+)", out,re.M)
-        foundSSIDs = []  #contains the net name - not necessarily the actual ssid name
-        for type,ssid in networks:
-                if type == "TYPE": continue
-                if type == "wifi" :
-                    foundSSIDs.append(ssid.strip())
-        #then for each found ssid - get the "secrets" to find out if wpa-psk (locked)
-        #also - since NAME ans ssid may be different - get the real ssid name
-        #   the NAME may have been created differently if the same SSID was created once open and once locked for example 
-        #   Netwrok Manager may have added a number to the ssid name - so read wireless.ssid to get the correct ssid
-        for netName in foundSSIDs:
-            out = subprocess.run(f"nmcli --show-secrets connection show {netName}", shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-            realssidArr = re.findall(r"wireless.ssid:(.+)", out,re.M)
-            ssid = realssidArr[0].strip() if len(realssidArr) == 1 else netName
-            keyMgmt = re.findall(r"wireless-security.key-mgmt:\s+([\w-]+).+", out,re.DOTALL)
-            if keyMgmt is None:
-                known_networks[netName] = Wpa_Network(ssid,False,False,-1,netName)  #means open network
-            elif len(keyMgmt) == 0 or keyMgmt[0] != "wpa-psk":
-                known_networks[netName] = Wpa_Network(ssid,False,False,-1,netName) #means open network (or could be WEP or LEAP)
-            elif keyMgmt[0] == "wpa-psk":
-                #always use the NAME given by Network Manager to the connection (Network) as key in dictionary
-                # but store the ssid real name (ssid from the router) in the object Wpa_Network
-                known_networks[netName] = Wpa_Network(ssid,True,False,-1,netName)  # means password needed
+
+        # Get interface info from Supervisor
+        interface_info = supervisor_api.get_interface_info()
+        if interface_info:
+            # Check if WiFi is configured
+            wifi_config = interface_info.get('wifi', {})
+            current_ssid = wifi_config.get('ssid', '')
+
+            if current_ssid:
+                # We have a configured network - add it to known networks
+                # Determine if it's encrypted based on auth mode
+                auth_mode = wifi_config.get('auth', 'open')
+                is_encrypted = (auth_mode != 'open')
+
+                # Use SSID as both key and network_name (Supervisor doesn't use separate connection names)
+                known_networks[current_ssid] = Wpa_Network(current_ssid, is_encrypted, False, -1, current_ssid)
+                mLOG.log(f'Found configured network: {current_ssid} (encrypted: {is_encrypted})')
 
         return known_networks
 
@@ -558,36 +732,36 @@ class WPAConf:
     #def network_name_from_Network_Manager(ssid)
         
 
-    def get_NM_Known_networks(self):
-        #use by Network manager implementation
+    def get_NM_Known_networks(self, supervisor_api=None):
         """
-            gets the list of the networks already known to Network Manager.
-            equivalent to get_wpa_supplicant_ssids for wpa_supplicant implementation - see comments there.
+        Get known networks via Supervisor API.
+        Equivalent to get_wpa_supplicant_ssids for wpa_supplicant implementation.
         """
-        self.wpa_supplicant_ssids = WPAConf.nmcli_known_networks()
+        # If no supervisor_api provided, create one (for compatibility)
+        if supervisor_api is None:
+            supervisor_api = SupervisorAPI()
 
-        self._connected_network = Wpa_Network('')  # set blank ssid  as default - means AP is not connected
-        self._connected_AP = AP() # holds AP/signal info on currently connected network - set empty as default
-        #get connected ssid
-        # nmcli dev status
-        #note: if no wifi ssid connected - it would say disconnected under STATE
-        #it returns something like this
-        """
-        DEVICE         TYPE      STATE                   CONNECTION 
-        wlan0          wifi      connected               NKSAN-STAR 
-        lo             loopback  connected (externally)  lo   
-        """
-        #it is confirmed that this will return an SSID with spaces correctly
-        out = subprocess.run("nmcli dev status", shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-        connected = re.findall(r"wlan0\s+wifi\s+connected\s+(.+)", out,re.M)
- 
-        if connected is not None:
-            try:
-                #note: connected contains the NAME of the connection as defined by Network manager which is the key for wpa_supplicant_ssids directory
-                self.connected_network = self.wpa_supplicant_ssids[connected[0].strip()] # this sets the connected network
-                mLOG.log(f'WiFi Network {connected[0]} is connected')
-            except:
-                pass #connected network is not network manager's known connection.  no point showing to user as we don't know password etc.
+        # Query Supervisor for current configuration
+        self.wpa_supplicant_ssids = WPAConf.supervisor_known_networks(supervisor_api)
+
+        self._connected_network = Wpa_Network('')  # set blank ssid as default
+        self._connected_AP = AP()  # empty default
+
+        # Check if we're connected via Supervisor API
+        interface_info = supervisor_api.get_interface_info()
+        if interface_info:
+            # Check connection state
+            if interface_info.get('connected', False):
+                wifi_config = interface_info.get('wifi', {})
+                current_ssid = wifi_config.get('ssid', '')
+
+                if current_ssid and current_ssid in self.wpa_supplicant_ssids:
+                    self.connected_network = self.wpa_supplicant_ssids[current_ssid]
+                    mLOG.log(f'WiFi Network {current_ssid} is connected')
+                elif current_ssid:
+                    mLOG.log(f'Connected to {current_ssid} but not in known networks list')
+            else:
+                mLOG.log('WiFi interface not connected')
 
 class AP:
     ''' 
@@ -609,50 +783,30 @@ class NetworkManager:
 
     def __init__(self,wifiMgr):
         self.mgr = wifiMgr
+        self.supervisor_api = SupervisorAPI()
 
     def scan(self):
-        mLOG.log("Starting WiFi scan via NetworkManager")
-        found_ssids = []
-        ssidList = []
-        out = subprocess.run("nmcli dev wifi rescan", 
-                            shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-        mLOG.log(f'rescan {out}')
-        time.sleep(1)
-        out = subprocess.run(
-            "nmcli -f SIGNAL,SECURITY,SSID dev wifi list",
-            shell=True,capture_output=True,encoding="utf-8",text=True).stdout
-        
-        #+? = non-greedy - match all SECURITY entry until 2 spaces or more are found (\s\s+)
-        ssids = re.findall(r"(^\d+)\s+(.+?)\s\s+(.+)", out,re.M)    
-
-        for strength,encryption,ssid in ssids:
-            try:
-                signal_strength = int(int(strength)/20)
-            except Exception as e:
-                mLOG.log(f'ERROR processing signal strength: {e}')
-                signal_strength = 0
-            trimmedSSID = ssid.strip()
-            if trimmedSSID in ssidList : continue
-            ssidList.append(trimmedSSID)
-            if trimmedSSID != "--" and len(trimmedSSID) > 0:
-                found_ssids.append({'ssid':trimmedSSID, 'signal':signal_strength, 'encrypt':'WPA' in encryption})
+        mLOG.log("Starting WiFi scan via Supervisor API")
+        # SupervisorAPI.get_access_points() already returns the format we need
+        found_ssids = self.supervisor_api.get_access_points()
+        mLOG.log(f"Scan found {len(found_ssids)} networks")
         return found_ssids
     
     def request_deletion(self,ssid):
-        """delete the network from network manager.
-        use with care: once done, password that was stored with the network is gone
-        User will need to enter password to connect again
         """
-        #get the network name corresponding to the ssid (there could be more than one)
+        Delete network configuration via Supervisor API.
+        Note: Supervisor manages entire interface config, so deletion means removing from known networks list.
+        User will need to enter password to connect again.
+        """
+        # With Supervisor API, we don't manage individual connection profiles
+        # Just remove from our internal known networks list
         network_names = self.mgr.wpa.get_network_name(ssid)
         if network_names is not None:
             for network_name in network_names:
-                p = subprocess.Popen(["nmcli","connection","delete",f"{network_name}"])
-                p.wait()
-                p.terminate()
-        #IMPORTANT:
-        #at this point, the netwrok still exists in the list of known networks wpa_supplicant_ssids
-        # it is the responsibility of the phone app to call (AP2s) to get the list updated.
+                if network_name in self.mgr.wpa.wpa_supplicant_ssids:
+                    del self.mgr.wpa.wpa_supplicant_ssids[network_name]
+                    mLOG.log(f"Removed {ssid} from known networks list")
+        # The phone app will call (AP2s) to get the updated list
         
     
 
@@ -705,7 +859,7 @@ class NetworkManager:
                     usePw = "" if pw == "NONE" else pw 
                     self.connect(known_network,usePw,True,True) #is_new and is_hidden
                 """if previous version of this ssid was open and is now locked, or vice-versa
-                    nmcli will create a new network: we don;t want that - code is written for only one 
+                    may create a new network: we don;t want that - code is written for only one 
                     network per ssid.  So remove it before re creating it.
                 """
             else:
@@ -719,175 +873,68 @@ class NetworkManager:
         return(self.mgr.wpa.connected_AP)
 
     def connect(self,network,pw,is_new=False, is_hidden=False):
-        #TODO: network creation needs network NAME
-        #NMCLI - MODIFIED
-        """ call this when connecting to:
-                - a new network
-                - changing password
-                - hidden ssid not seen before
-            if it can connect:
-                add the network to the list of known networks and make it the connected network
-            if not:
-                - delete the network if it was new (was created with a wrong password)
         """
-        connection_attempt = False
-        hw = "yes" if is_hidden else "no"
-        mLOG.log(f'entering connect with network ssid:{network.ssid}, is_new:{is_new}, is_hidden: {is_hidden}')
-        
-        use_network = network
-        #on entry - if network is new - network does not have the network name: it needs to be created by nmcli to get it first
-        # create a new network if needed
+        Connect to a WiFi network via Supervisor API.
+        Handles:
+            - New networks
+            - Existing networks (reconnection)
+            - Password changes
+            - Hidden SSIDs
+        """
+        mLOG.log(f'Connecting to SSID:{network.ssid}, is_new:{is_new}, is_hidden:{is_hidden}')
+
+        # Determine authentication mode
+        auth_mode = "open" if pw == "" else "wpa-psk"
+
+        # Call Supervisor API to configure and connect
+        success, error = self.supervisor_api.update_interface(
+            ssid=network.ssid,
+            password=pw,
+            auth_mode=auth_mode,
+            hidden=is_hidden
+        )
+
+        if not success:
+            mLOG.log(f"Connection failed: {error}", level=mLOG.INFO)
+            return False
+
+        mLOG.log(f'Successfully connected to {network.ssid}')
+
+        # Update internal state - add to known networks if new
         if is_new:
-            new_network = self.create_network(network.ssid,pw,is_hidden)
-            # if network not created (or failed to set password) fail the connection attempt
-            if new_network is None: return False
-            use_network = new_network
+            # Use SSID as network name (Supervisor doesn't use separate connection names)
+            network.network_name = network.ssid
+            self.mgr.wpa.wpa_supplicant_ssids[network.ssid] = network
+            mLOG.log(f'Added {network.ssid} to known networks list')
 
-        """
-        at this point, if new network - a network was created with the passwrd and hidden flag set in the network
-        which is the same as connecting to an existing network (already created).  
-        To connect to it only need to call nmcli con up <network name>
-        however - if we have an existing ssid where the password is changed on the router, 
-            the first attempt to connect to it will have failed - user will have been shown a password box,
-            and will arrive here as existing network and a new password (could have been left blank)
-            - in this case we need to call dev wifi connect...  
-            which will update the password in the sotred network and connect to the router using this new password.
-            Note - that if this connection fails as well, the network on disk will now have the second wrong password.
+        # Set as connected network (this also updates connected_AP)
+        self.mgr.wpa.connected_network = network
+        return True
 
-        Note:   if password change on router went from locked to open or open to locked,
-                the get list method of wifiManager will have caught this - seen a conflict and removed the network from 
-                the list of known network - so when user selects the ssid - it will be in the list of unknown networks
-                and it will arrive here as new.
-        """
-
-        #run this to make sure nmcli is aware of all APs - not needed?
-        subprocess.run("nmcli dev wifi list",shell=True,capture_output=True,encoding='utf-8')
-        try:
-            if (not is_new) and (pw != "") :
-                p = subprocess.check_output(
-                    ["nmcli", "--wait", f"{NETWORK_MANAGER_CONNECTION_TIMEOUT}", "dev", "wifi", 
-                     "connect", f"{use_network.network_name}", "password", f"{pw}", "hidden", f"{hw}"],
-                    stderr=subprocess.STDOUT, shell=False)
-            else: 
-                p=subprocess.check_output(["nmcli", "--wait", f"{NETWORK_MANAGER_CONNECTION_TIMEOUT}", "con", "up", f"{use_network.network_name}"], 
-                                    stderr=subprocess.STDOUT,shell=False)
-                
-            mLOG.log(f'connection resutl: {p}')
-            connection_attempt = True
-        except subprocess.CalledProcessError as e :
-            mLOG.log(f"connection error:{e.output}")
-            #if new network, connection was just created in NetworkManager, 
-            #remove it from device
-            if is_new :
-                try:
-                    result = subprocess.run(["nmcli", "connection", "delete", f"{use_network.network_name}"], 
-                                                shell=False,capture_output=True,encoding='utf-8') 
-                    #give time to device to reconnect to whatever network it was connected before the attempt
-                    time.sleep(2)
-                except Exception as ee:
-                    mLOG.log("General exception on trying to delete connection in network manager")
-                    mLOG.log(ee.output) 
-        except Exception as ex :
-            mLOG.log("general exception trying to connect")
-            mLOG.log(f"connection error:{ex.output}")
-
-        if connection_attempt:        
-            if is_new:
-                    # the connected network is now  known network - move it there and update its status in list of APs
-                    self.mgr.wpa.wpa_supplicant_ssids[use_network.network_name] = use_network #add new network to wpa list
-                    mLOG.log(f'added {network.ssid} to wpa list')
-                     # Note it is not necessary to modiy the in_supplicant and connected property of the AP since it will be regenerated
-                    #       when ios calls for the list again.  If it is hidden, it will be scanned because the hidden "word" was set on the network.
-            #set the connected network to this ssid -> also sets the connected_AP and gets the signal strength:        
-            self.mgr.wpa.connected_network = use_network # make it the connected network
-        return connection_attempt
-
-    def create_network(self,ssid,pw,hidden = False):
-        # if password is none - create an open network
-        #check if network exists. If so delete it
-        network_names = self.mgr.wpa.get_network_name(ssid)
-        if network_names is not None:
-            for network_name in network_names:
-                p = subprocess.Popen(["nmcli","connection","delete",f"{network_name}"])
-                p.wait()
-                p.terminate()
-
-        #now add the network - first create it has open
-        #warning - this will allow creation of the same network twice (hence the deletion attempt)
-        #nmcli con add type wifi con-name TestingNew ifname wlan0 ssid TestingNew
-        #"nmcli con add type wifi con-name NFTest ifname wlan0 ssid NFTest
-                #returns: Connection 'NFTest' (1cd11139-58cd-4057-8c25-67935bd60623) successfully added.
-       
-        p = subprocess.run(["nmcli","con","add","type","wifi","con-name",f"{ssid}","ifname","wlan0","ssid",f"{ssid}"],
-                           capture_output=True, text=True)
-        try:
-            network_name = re.findall(r"'(.+?)'\s\(", p.stdout,re.M)[0]
-        except:
-           network_name = None
-        
-        #this should not happen - but if it does it will be caught in the connect method
-        if network_name is None: return None
-        
-        #if it is a hidden network - modify to indicate:
-        if hidden:
-            p = subprocess.Popen(["nmcli","con","modify",f"{network_name}","802-11-wireless.hidden", "yes"])
-            p.wait()
-            p.terminate()
-        #add password if one was passed in:
-        if pw != "":
-            try: 
-                #this adds wpa-psk and password
-                p = subprocess.check_output(["nmcli","con","modify",f"{network_name}","wifi-sec.key-mgmt","wpa-psk"],
-                                                stderr=subprocess.STDOUT, shell=False)
-                p = subprocess.check_output(["nmcli","con","modify",f"{network_name}","wifi-sec.psk", f"{pw}"],
-                                                stderr=subprocess.STDOUT, shell=False)
-            except Exception as ex:
-                mLOG.log(f"creation error: {ex}")
-                try:
-                     p = subprocess.check_output(["nmcli","con","del",f"{network_name}"],
-                                                stderr=subprocess.STDOUT, shell=False)
-                except:
-                    pass
-                return None
-        #construct the Wpa_Network
-        network = Wpa_Network(ssid,(pw!=""),False,-1,network_name)
-        return network
-
+    # Note: create_network() removed - Supervisor API handles network creation in update_interface()
 
     def remove_known_network(self,known_network):
         '''
-            this removes a known network from the device, and moves it from known_network to unknown network in list of AP
+        Remove a known network from the internal known networks list.
+        With Supervisor API, we manage via the interface configuration.
         '''
-        #check if network to remove is hidden:
+        mLOG.log(f'Removing known network: {known_network.ssid}')
 
-        out = subprocess.run(f'nmcli -f 802-11-wireless con show {known_network.network_name}', 
-                                shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-        
-        try:
-            is_hidden = (re.findall(r"hidden:\s+([a-z]+)", out,re.M)[0] == "yes")
-        except:
-            is_hidden = False
+        # Remove from internal known networks directory
+        if known_network.network_name in self.mgr.wpa.wpa_supplicant_ssids:
+            del self.mgr.wpa.wpa_supplicant_ssids[known_network.network_name]
 
-        #this network is a hidden ssid - it will be removed (not added) from ap list as well
-        mLOG.log(f'{known_network.ssid} to be removed is hidden?: {is_hidden}')
-        #remove the network from Network Manager list of Connections on device
-        p = subprocess.Popen(["nmcli","connection","delete",f"{known_network.network_name}"])
-        p.wait()
-        p.terminate()
-        #remove the network from the known network directory
-        del self.mgr.wpa.wpa_supplicant_ssids[known_network.network_name]
-        # change bit in list of AP - not necessary: done in get_list()
-        #indexes = [i for i, x in enumerate(self.mgr.list_of_APs) if x.ssid == known_network.ssid] #get index for AP of that ssid  - should only be one
-        #for i in indexes:
-        #    self.mgr.list_of_APs[i].in_supplicant = 0
-        return is_hidden
-    
+        # Return False for is_hidden (Supervisor API doesn't track this separately)
+        return False
+
     def disconnect(self):
-        #CALLED from Service
-        #NMCLI - MODIFIED
-        command_str = "nmcli dev disconnect wlan0"
-        out= subprocess.run(command_str, shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-        mLOG.log(f'disconnect" {out}')
+        '''Disconnect from current WiFi network via Supervisor API'''
+        mLOG.log("Disconnecting from WiFi via Supervisor API")
+        success, error = self.supervisor_api.disconnect_interface()
+        if not success:
+            mLOG.log(f"Disconnect failed: {error}", level=mLOG.INFO)
+        else:
+            mLOG.log("Successfully disconnected from WiFi")
 
 class WpaSupplicant:
 
@@ -1242,31 +1289,30 @@ class WifiManager:
     '''
 
     def __init__(self):
-        #SAME - updated (force_new_list)
-        self.wpa = WPAConf()  
+        #Updated for Supervisor API
+        self.wpa = WPAConf()
         self.list_of_APs=[]
         self.force_new_list = False #set this as a flag to btwifi to force resending the list of Aps to iphone
         self.useNetworkManager = self.network_manager_test()
         if self.useNetworkManager:
             self.operations = NetworkManager(self)
+            self.supervisor_api = self.operations.supervisor_api  # Share the API instance
         else:
             self.operations = WpaSupplicant(self)
+            self.supervisor_api = None
 
     def network_manager_test(self):
-        """Return True if NetworkManager is accessible via D-Bus"""
+        """Test if Supervisor API is accessible (replaces NetworkManager D-Bus test)"""
         try:
-            bus = dbus.SystemBus()
-            obj = bus.get_object('org.freedesktop.NetworkManager',
-                                '/org/freedesktop/NetworkManager')
-            # Try to introspect - if NetworkManager is running, this succeeds
-            obj.Introspect(dbus_interface='org.freedesktop.DBus.Introspectable')
-            mLOG.log("test: Network Manager is running = True")
-            return True
-        except dbus.exceptions.DBusException as e:
-            mLOG.log(f"test: Network Manager is running = False ({str(e)})")
-            return False
+            supervisor_api = SupervisorAPI()
+            is_accessible = supervisor_api.test_connection()
+            if is_accessible:
+                mLOG.log("test: Supervisor API is accessible = True")
+            else:
+                mLOG.log("test: Supervisor API is accessible = False")
+            return is_accessible
         except Exception as e:
-            mLOG.log(f"test: Network Manager is running = False (Unexpected error: {str(e)})")
+            mLOG.log(f"test: Supervisor API is accessible = False (Error: {str(e)})")
             return False
 
 
@@ -1283,9 +1329,9 @@ class WifiManager:
 
     def get_list(self):
         #CALLED from service
-        #SAME 
+        #Updated for Supervisor API
         if self.useNetworkManager:
-            self.wpa.get_NM_Known_networks()  #this sets list of known networks and connected network if one is connected.
+            self.wpa.get_NM_Known_networks(self.supervisor_api)  #this sets list of known networks and connected network if one is connected.
         else:
             self.wpa.get_wpa_supplicant_ssids()
         
@@ -1350,8 +1396,7 @@ class WifiManager:
     def wifi_connect(self,up = True):
         #Warning: this will only work if .py file(s) are owned by root.  otherwise error message regarding permissions
         #this does not communicate back the result to ios app: app will display radio off/on even if command was denied.
-        #automatic install uses all python files combined into one btwifiset.py and stored at /usr/local/btwifiset owned by root.
-        #SAME
+        #The main.py file is copied to container root (/) and owned by root.
         cmd = "/bin/ip link set wlan0 up" if up else "/bin/ip link set wlan0 down"
         msg = "Bring WiFi up" if up else "Bring WiFi down"
         mLOG.log(msg)
@@ -2348,13 +2393,19 @@ class Advertise(dbus.service.Object):
 
     def __init__(self, index,bleMgr):
         self.bleMgr = bleMgr
-        self.hostname = WifiUtil.get_hostname()
+        # Use configured device name, fallback to hostname if not set
+        if ConfigData.DEVICE_NAME and ConfigData.DEVICE_NAME.strip():
+            self.advertised_name = ConfigData.DEVICE_NAME.strip()
+        else:
+            self.hostname = WifiUtil.get_hostname().strip()
+            self.advertised_name = self.hostname
+
         self.properties = dict()
         self.properties["Type"] = dbus.String("peripheral")
         self.properties["ServiceUUIDs"] = dbus.Array([UUID_WIFISET],signature='s')
         self.properties["IncludeTxPower"] = dbus.Boolean(True)
-        self.properties["LocalName"] = dbus.String(ConfigData.DEVICE_NAME)
-        mLOG.log(f"Advertising Bluetooth as: {ConfigData.DEVICE_NAME}")
+        self.properties["LocalName"] = dbus.String(self.advertised_name)
+        mLOG.log(f"Advertising Bluetooth as: {self.advertised_name}")
         self.properties["Flags"] = dbus.Byte(0x06) 
 
         #flags: 0x02: "LE General Discoverable Mode"
@@ -3124,7 +3175,7 @@ class BLEManager:
     
 
     def start(self):
-        mLOG.log("** Starting BTwifiSet - version 2 (nmcli/crypto)")
+        mLOG.log("** Starting BTwifiSet - version 3 (HA Supervisor API")
         mLOG.log("** Version date: March 10 2025 **\n")
         mLOG.log(f'BTwifiSet timeout: {int(ConfigData.TIMEOUT/60)} minutes')
         mLOG.log("starting BLE Server")

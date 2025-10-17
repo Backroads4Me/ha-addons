@@ -32,10 +32,11 @@ if [ ! -d /sys/class/net/wlan0 ]; then
     bashio::log.warning "The addon may not function correctly without a WiFi adapter."
 fi
 
-# Check if NetworkManager is accessible via D-Bus
-if ! dbus-send --system --print-reply --dest=org.freedesktop.NetworkManager /org/freedesktop/NetworkManager org.freedesktop.DBus.Introspectable.Introspect > /dev/null 2>&1; then
-    bashio::log.error "NetworkManager is not accessible via D-Bus!"
-    bashio::log.error "This addon requires NetworkManager D-Bus API to configure WiFi."
+# Check if Supervisor API is accessible
+# The Python script will perform additional validation of API connectivity
+if [ -z "${SUPERVISOR_TOKEN}" ]; then
+    bashio::log.error "SUPERVISOR_TOKEN not found!"
+    bashio::log.error "This addon requires access to the Supervisor API."
     exit 1
 fi
 
@@ -79,16 +80,14 @@ bashio::log.info "Starting Bluetooth server."
 bashio::log.info "Bluetooth initialized. 42 processes ready."
 bashio::log.info "Searching for the connection..."
 
-cd /usr/local/btwifiset
-
 # Test Python import before exec to catch import errors
-python3 -c "import sys; sys.path.insert(0, '/usr/local/btwifiset'); import btwifiset" 2>&1
+python3 -c "import main" 2>&1
 if [ $? -ne 0 ]; then
     bashio::log.error "Python script failed to import! Check for syntax or import errors."
     exit 1
 fi
 
-exec python3 -u /usr/local/btwifiset/btwifiset.py \
+exec python3 -u /main.py \
     --timeout "${TIMEOUT}" \
     --device-name "${DEVICE_NAME}" \
     --console

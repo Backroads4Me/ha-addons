@@ -20,7 +20,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install required packages
 # Note: Using Alpine packages for the Home Assistant base images
-# NetworkManager client (nmcli) connects to host's NetworkManager via D-Bus (host_dbus: true)
+# WiFi management via Supervisor API (no nmcli/NetworkManager packages needed)
 RUN apk add --no-cache \
     python3 \
     py3-pip \
@@ -31,18 +31,15 @@ RUN apk add --no-cache \
     bluez-libs \
     bluez-deprecated \
     dbus \
-    networkmanager \
-    networkmanager-wifi \
     && rm -rf /var/cache/apk/*
 
 # Copy addon files
-COPY rootfs /
+COPY run.sh /
+COPY main.py /
+COPY requirements.txt /
 
 # Make run script executable
-RUN chmod a+x /usr/local/btwifiset/run.sh
-
-# Set working directory
-WORKDIR /usr/local/btwifiset
+RUN chmod a+x /run.sh
 
 # Run the addon
-CMD ["/usr/local/btwifiset/run.sh"]
+CMD ["/run.sh"]
