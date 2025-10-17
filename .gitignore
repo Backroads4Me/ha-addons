@@ -32,6 +32,7 @@ env/
 .DS_Store
 .claude/
 CLAUDE.md
+GEMINI.md
 
 # Docker
 *.tar

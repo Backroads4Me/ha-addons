@@ -1,3 +1,18 @@
+## [0.3.0] - 2025-10-17
+
+### Changed
+
+- **BREAKING**: Refactored the entire monolithic `main.py` script into a modular application structure under the `app/` directory. This improves maintainability and resolves tooling buffer issues.
+- Changed the Wi-Fi scanning method to use a direct `iwlist scan` system call instead of the Home Assistant Supervisor API. This is a more robust method that avoids the previous `403 Forbidden` errors.
+
+### Added
+
+- Added the `wireless-tools` package to the `Dockerfile` to provide the `iwlist` utility required for the new scanning method.
+
+### Fixed
+
+- Fixed a critical bug where Wi-Fi scanning would fail due to a `403 Forbidden` error when calling the Supervisor API.
+
 ## [0.2.1] - 2025-10-17
 
 ### Changed

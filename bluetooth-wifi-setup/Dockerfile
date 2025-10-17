@@ -31,6 +31,7 @@ RUN apk add --no-cache \
     bluez-libs \
     bluez-deprecated \
     dbus \
+    wireless-tools \
     && rm -rf /var/cache/apk/*
 
 # Copy addon files
