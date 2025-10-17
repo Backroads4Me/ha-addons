@@ -85,12 +85,30 @@ class SupervisorAPI:
     Replaces nmcli commands for network management within HA addons
     """
     BASE_URL = "http://supervisor"
-    INTERFACE = "wlan0"
-
     def __init__(self):
         self.token = os.environ.get('SUPERVISOR_TOKEN', '')
         if not self.token:
             mLOG.log("WARNING: SUPERVISOR_TOKEN not found in environment", level=mLOG.INFO)
+        self.interface = self._get_wireless_interface()
+
+    def _get_wireless_interface(self):
+        """Discover the name of the first wireless interface."""
+        success, data, error = self._make_request('/network/info')
+        if not success:
+            mLOG.log(f"Failed to get network info: {error}", level=mLOG.CRITICAL)
+            return "wlan0"  # Fallback
+
+        try:
+            interfaces = data.get('data', {}).get('interfaces', [])
+            for iface in interfaces:
+                if iface.get('type') == 'wireless':
+                    mLOG.log(f"Found wireless interface: {iface.get('interface')}")
+                    return iface.get('interface')
+        except Exception as e:
+            mLOG.log(f"Error parsing network info: {e}", level=mLOG.CRITICAL)
+
+        mLOG.log("No wireless interface found, falling back to wlan0", level=mLOG.INFO)
+        return "wlan0"  # Fallback if no wireless interface is found
 
     def _make_request(self, endpoint, method='GET', data=None):
         """
@@ -132,7 +150,7 @@ class SupervisorAPI:
         Scan for WiFi access points
         Returns: list of dict with keys: ssid, signal, encrypted (bool)
         """
-        success, data, error = self._make_request(f'/network/interface/{self.INTERFACE}/accesspoints')
+        success, data, error = self._make_request(f'/network/interface/{self.interface}/accesspoints')
         if not success:
             mLOG.log(f"Failed to scan access points: {error}", level=mLOG.INFO)
             return []
@@ -173,7 +191,7 @@ class SupervisorAPI:
         Get current interface configuration and connection status
         Returns: dict with connection info or None on error
         """
-        success, data, error = self._make_request(f'/network/interface/{self.INTERFACE}/info')
+        success, data, error = self._make_request(f'/network/interface/{self.interface}/info')
         if not success:
             mLOG.log(f"Failed to get interface info: {error}", level=mLOG.INFO)
             return None
@@ -217,10 +235,8 @@ class SupervisorAPI:
         if hidden:
             config["wifi"]["hidden"] = True
 
-        mLOG.log(f"Updating interface with SSID: {ssid}, auth: {config['wifi'].get('auth', 'open')}, hidden: {hidden}")
-
         success, data, error = self._make_request(
-            f'/network/interface/{self.INTERFACE}/update',
+            f'/network/interface/{self.interface}/update',
             method='POST',
             data=config
         )
@@ -245,7 +261,7 @@ class SupervisorAPI:
         }
 
         success, data, error = self._make_request(
-            f'/network/interface/{self.INTERFACE}/update',
+            f'/network/interface/{self.interface}/update',
             method='POST',
             data=config
         )
@@ -551,7 +567,8 @@ class WPAConf:
         - either reload from this (use get_wpa_supplicant_ssids)
         - or modify/add the wpa_supplicant_network objects held in the wpa__supplicant_ssids dictionary
     '''
-    def __init__(self):
+    def __init__(self, mgr):
+        self.mgr = mgr
         self._connected_network = Wpa_Network('')  #blank ssid means AP is not connected
         self._connected_AP = AP() # holds AP/signal info on currently connected network
         self.wpa_supplicant_ssids = {}  #key: ssid  value: Wpa_Network
@@ -579,15 +596,26 @@ class WPAConf:
         self._connected_network = new_connected_network #if blank ssid - means RPi not connected to any network
         #get AP/signal_info on connected network AP(self,ssid='',signal=0,locked=False,in_supplicant=False,connected=False)
         if len(self._connected_network.ssid)>0:
+            signal_strength = 3  # Default value
             try:
-                #this also works for Network Manager implementations.
-                data = subprocess.run("wpa_cli -i wlan0 signal_poll", shell=True,capture_output=True,encoding='utf-8',text=True).stdout
-                signal = re.findall(r'RSSI=(.*?)\s', data, re.DOTALL)
-                mLOG.log(f'connected network signal strength: {int(signal[0])}')
-                signal_strength = WifiUtil.signal(int(signal[0]))
+                if hasattr(self, 'mgr') and self.mgr.useNetworkManager:
+                    # Use Supervisor API
+                    interface_info = self.mgr.supervisor_api.get_interface_info()
+                    if interface_info and 'wifi' in interface_info and 'signal' in interface_info['wifi']:
+                        signal_quality = interface_info['wifi']['signal']  # This is 0-100
+                        signal_strength = max(0, min(5, int(signal_quality / 20)))
+                    else:
+                        mLOG.log("Could not get signal strength from Supervisor", level=mLOG.INFO)
+                else:
+                    # Use wpa_cli for non-supervisor setups
+                    data = subprocess.run("wpa_cli -i wlan0 signal_poll", shell=True, capture_output=True, encoding='utf-8', text=True).stdout
+                    signal = re.findall(r'RSSI=(.*?)\s', data, re.DOTALL)
+                    if signal:
+                        mLOG.log(f'connected network signal strength: {int(signal[0])}')
+                        signal_strength = WifiUtil.signal(int(signal[0]))
             except Exception as e:
-                mLOG.log(f'ERROR: {e}')
-                signal_strength = 3
+                mLOG.log(f'ERROR getting signal strength: {e}')
+
             self._connected_AP = AP(self._connected_network.ssid,signal_strength,self._connected_network.locked,True,True)
         else:
             self._connected_AP = AP()  # empty/blank AP
@@ -1290,7 +1318,7 @@ class WifiManager:
 
     def __init__(self):
         #Updated for Supervisor API
-        self.wpa = WPAConf()
+        self.wpa = WPAConf(self)
         self.list_of_APs=[]
         self.force_new_list = False #set this as a flag to btwifi to force resending the list of Aps to iphone
         self.useNetworkManager = self.network_manager_test()
