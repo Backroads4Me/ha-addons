@@ -611,6 +611,7 @@ class NetworkManager:
         self.mgr = wifiMgr
 
     def scan(self):
+        mLOG.log("Starting WiFi scan via NetworkManager")
         found_ssids = []
         ssidList = []
         out = subprocess.run("nmcli dev wifi rescan", 
@@ -2309,9 +2310,6 @@ class Blue:
     def properties_changed(interface, changed, invalidated, path):
         if interface != "org.bluez.Device1":
             return
-        mLOG.log(f"\ncounter={Blue.counter}",level=mLOG.DEV)
-        mLOG.log(f"path:{path} \n changed:{changed}\n ",
-                level=mLOG.DEV)
         Blue.counter+=1
         try: 
             pythonDict =  dbus_to_python(changed)
@@ -2347,6 +2345,7 @@ class Advertise(dbus.service.Object):
         self.properties["ServiceUUIDs"] = dbus.Array([UUID_WIFISET],signature='s')
         self.properties["IncludeTxPower"] = dbus.Boolean(True)
         self.properties["LocalName"] = dbus.String(ConfigData.DEVICE_NAME)
+        mLOG.log(f"Advertising Bluetooth as: {ConfigData.DEVICE_NAME}")
         self.properties["Flags"] = dbus.Byte(0x06) 
 
         #flags: 0x02: "LE General Discoverable Mode"
@@ -2748,6 +2747,7 @@ class WifiSetService(Service):
                 #note: since version never reads APs one by one, self.AP_list is always empty
                 #sets the wifi prefix for notification using version 2
                 self.notifications.setappVersionWifiPrefix(2)
+                mLOG.log("Client requested WiFi network list (AP2s)")
                 returned_list = self.mgr.get_list() #go get the list
                 temp_AP_list = []
                 for ap in returned_list:
@@ -2761,6 +2761,7 @@ class WifiSetService(Service):
                 #after receiving notification READY - it reads the list one by one - with chracteristic read.
                 #sets the wifi prefix for notification using version 1
                 self.notifications.setappVersionWifiPrefix(1)
+                mLOG.log("Client requested WiFi network list (APs)")
                 returned_list = self.mgr.get_list() #go get the list
                 self.AP_list = []
                 for ap in returned_list:

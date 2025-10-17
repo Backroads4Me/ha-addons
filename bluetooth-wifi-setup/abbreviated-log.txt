@@ -1,0 +1,84 @@
+
+[20:46:17] INFO: Starting Bluetooth WiFi Setup addon...
+[20:46:17] INFO: Timeout: 15 minutes
+[20:46:17] INFO: Log level: info
+[20:46:17] INFO: Device name: BTBerryWifi
+[20:46:17] INFO: Starting Bluetooth server.
+[20:46:17] INFO: Bluetooth initialized. 42 processes ready.
+[20:46:17] INFO: Searching for the connection...
+2025-10-16 20:46:18.153588 .getInfoFromFile - file {PiInfo.INFOFILE} not created yet - using default values
+2025-10-16 20:46:18.153836 .start - ** Starting BTwifiSet - version 2 (nmcli/crypto)
+2025-10-16 20:46:18.153855 .start - ** Version date: March 10 2025 **
+2025-10-16 20:46:18.153873 .start - BTwifiSet timeout: 15 minutes
+2025-10-16 20:46:18.153883 .start - starting BLE Server
+2025-10-16 20:46:18.166115 .network_manager_test - test: Network Manager is running = True
+registering
+2025-10-16 20:46:18.168281 .register - Registering advertisement
+2025-10-16 20:46:18.168782 .start - starting main loop
+2025-10-16 20:46:18.177942 .register_app_callback - GATT application registered
+2025-10-16 20:46:18.182444 .register_ad_callback - GATT advertisement registered
+2025-10-16 20:46:18.235607 .properties_changed - 
+counter=1
+2025-10-16 20:46:18.235659 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-62, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:18.269863 .properties_changed - 
+counter=2
+2025-10-16 20:46:18.269903 .properties_changed - path:/org/bluez/hci0/dev_F9_96_20_18_EC_EC 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-60, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:18.270017 .properties_changed - 
+counter=3
+2025-10-16 20:46:21.110127 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-66, variant_level=1), dbus.String('ManufacturerData'): dbus.Dictionary({dbus.UInt16(76): dbus.Array([dbus.Byte(16), dbus.Byte(6), dbus.Byte(116), dbus.Byte(30), dbus.Byte(29), dbus.Byte(194), dbus.Byte(134), dbus.Byte(67)], signature=dbus.Signature('y'), variant_level=1)}, signature=dbus.Signature('qv'), variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:21.110333 .properties_changed - 
+counter=37
+2025-10-16 20:46:22.782471 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-63, variant_level=1), dbus.String('ManufacturerData'): dbus.Dictionary({dbus.UInt16(76): dbus.Array([dbus.Byte(16), dbus.Byte(6), dbus.Byte(52), dbus.Byte(26), dbus.Byte(29), dbus.Byte(194), dbus.Byte(134), dbus.Byte(67)], signature=dbus.Signature('y'), variant_level=1)}, signature=dbus.Signature('qv'), variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:22.782723 .properties_changed - 
+counter=58
+2025-10-16 20:46:26.014546 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-53, variant_level=1), dbus.String('ManufacturerData'): dbus.Dictionary({dbus.UInt16(76): dbus.Array([dbus.Byte(16), dbus.Byte(6), dbus.Byte(116), dbus.Byte(30), dbus.Byte(29), dbus.Byte(194), dbus.Byte(134), dbus.Byte(67)], signature=dbus.Signature('y'), variant_level=1)}, signature=dbus.Signature('qv'), variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:26.014677 .properties_changed - 
+counter=91
+2025-10-16 20:46:37.426123 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('Connected'): dbus.Boolean(True, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:37.531675 .properties_changed - 
+counter=228
+2025-10-16 20:46:39.312275 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('UUIDs'): dbus.Array([dbus.String('00001800-0000-1000-8000-00805f9b34fb'), dbus.String('00001801-0000-1000-8000-00805f9b34fb'), dbus.String('00001805-0000-1000-8000-00805f9b34fb'), dbus.String('0000180a-0000-1000-8000-00805f9b34fb'), dbus.String('0000180f-0000-1000-8000-00805f9b34fb'), dbus.String('7905f431-b5ce-4e99-a40f-4b1e122d00d0'), dbus.String('89d3502b-0f36-433a-8ef4-c502ad55f8dc'), dbus.String('9fa480e0-4967-4542-9390-d343dc5d04ae'), dbus.String('d0611e78-bbb4-4591-a5f8-487910ae4366')], signature=dbus.Signature('s'), variant_level=1), dbus.String('ServicesResolved'): dbus.Boolean(True, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:39.326801 .properties_changed - 
+counter=249
+2025-10-16 20:46:42.250184 .properties_changed - path:/org/bluez/hci0/dev_7D_20_19_D4_45_7E 
+ changed:dbus.Dictionary({dbus.String('ServicesResolved'): dbus.Boolean(False, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:42.250341 .properties_changed - 
+counter=286
+2025-10-16 20:46:50.377053 .properties_changed - path:/org/bluez/hci0/dev_1B_1E_B1_56_D1_C6 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-62, variant_level=1)}, signature=dbus.Signature('sv'))
+s6-rc: info: service legacy-services: stopping
+s6-rc: info: service legacy-services successfully stopped
+s6-rc: info: service legacy-cont-init: stopping
+s6-rc: info: service legacy-cont-init successfully stopped
+s6-rc: info: service fix-attrs: stopping
+s6-rc: info: service fix-attrs successfully stopped
+s6-rc: info: service s6rc-oneshot-runner: stopping
+s6-rc: info: service s6rc-oneshot-runner successfully stopped
+2025-10-16 20:46:50.482750 .properties_changed - 
+counter=384
+2025-10-16 20:46:50.690138 .properties_changed - path:/org/bluez/hci0/dev_1B_1E_B1_56_D1_C6 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-73, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:50.795831 .properties_changed - 
+counter=388
+2025-10-16 20:46:50.795876 .properties_changed - path:/org/bluez/hci0/dev_1B_1E_B1_56_D1_C6 
+ changed:dbus.Dictionary({dbus.String('RSSI'): dbus.Int16(-75, variant_level=1)}, signature=dbus.Signature('sv'))
+2025-10-16 20:46:50.843297 .graceful_quit - stopping main loop on SIGTERM received
+2025-10-16 20:46:50.843342 .quitBT - quitting Bluetooth - NEED_RESTART is False
+2025-10-16 20:46:51.846744 .quitBT - calling advertisement de-registration
+2025-10-16 20:46:51.846807 .unregister - De-Registering advertisement - path: /org/bluez/advertise0
+2025-10-16 20:46:51.847302 .quitBT - calling application de-registration
+2025-10-16 20:46:51.847331 .unregister - De-Registering Application - path: /
+2025-10-16 20:46:51.847346 .deinit - De-init Service  - path: /org/bluez/service0
+2025-10-16 20:46:51.847358 .deinit - De-init Characteristic  - path: /org/bluez/service0/char0
+2025-10-16 20:46:51.847369 .deinit - De-init Descriptor  - path: /org/bluez/service0/char0/desc0
+2025-10-16 20:46:51.847407 .deinit - De-init Characteristic  - path: /org/bluez/service0/char1
+2025-10-16 20:46:51.847419 .deinit - De-init Descriptor  - path: /org/bluez/service0/char1/desc0
+2025-10-16 20:46:52.849300 .<module> - ble manager has exited with need restart = False
+2025-10-16 20:46:52.849327 .<module> - btwifiset says: So long and thanks for all the fish
