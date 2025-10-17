@@ -1,3 +1,9 @@
+## [0.3.1] - 2025-10-17
+
+### Fixed
+
+- Fixed a `ModuleNotFoundError` by adding the `app` directory to the Docker image. This was missed during the v0.3.0 refactoring.
+
 ## [0.3.0] - 2025-10-17
 
 ### Changed

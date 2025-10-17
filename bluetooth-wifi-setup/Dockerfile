@@ -37,6 +37,7 @@ RUN apk add --no-cache \
 # Copy addon files
 COPY run.sh /
 COPY main.py /
+COPY app /app
 COPY requirements.txt /
 
 # Make run script executable
