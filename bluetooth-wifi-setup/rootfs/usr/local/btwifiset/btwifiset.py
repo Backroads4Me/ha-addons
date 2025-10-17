@@ -2378,18 +2378,21 @@ class Advertise(dbus.service.Object):
         #now calling for restart if any error occurs here
         global NEED_RESTART
         try:
-            NEED_RESTART = True
             errorStr = f"{error}"
             if "Maximum" in errorStr:
-                mLOG.log("advertisement Maximum error - calling for bluetooth service restart ", level=mLOG.CRITICAL)
+                mLOG.log("Maximum advertisements reached. Waiting for a slot to become available.", level=mLOG.INFO)
+                NEED_RESTART = False
             else:
-                mLOG.log("advertisement registration error - other than maximum advertisement - call for restart", level=mLOG.CRITICAL)
+                mLOG.log(f"Advertisement registration error: {errorStr} - calling for restart", level=mLOG.CRITICAL)
+                NEED_RESTART = True
         except:
             pass
-        mLOG.log(f"NEED_RESTART is set to {NEED_RESTART}", level=mLOG.CRITICAL)
-        mLOG.log(f"Failed to register GATT advertisement {error}", level=mLOG.CRITICAL)
-        mLOG.log("calling quitBT()", level=mLOG.CRITICAL)
-        self.bleMgr.quitBT()
+        
+        if NEED_RESTART:
+            mLOG.log(f"NEED_RESTART is set to {NEED_RESTART}", level=mLOG.CRITICAL)
+            mLOG.log(f"Failed to register GATT advertisement {error}", level=mLOG.CRITICAL)
+            mLOG.log("calling quitBT()", level=mLOG.CRITICAL)
+            self.bleMgr.quitBT()
 
     def register(self):
         mLOG.log("Registering advertisement")
