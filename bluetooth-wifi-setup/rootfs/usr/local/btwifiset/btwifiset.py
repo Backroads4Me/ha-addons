@@ -2309,9 +2309,9 @@ class Blue:
     def properties_changed(interface, changed, invalidated, path):
         if interface != "org.bluez.Device1":
             return
-        mLOG.log(f"\ncounter={Blue.counter}",level=mLOG.INFO)
+        mLOG.log(f"\ncounter={Blue.counter}",level=mLOG.DEV)
         mLOG.log(f"path:{path} \n changed:{changed}\n ",
-                level=mLOG.INFO)
+                level=mLOG.DEV)
         Blue.counter+=1
         try: 
             pythonDict =  dbus_to_python(changed)
@@ -2371,7 +2371,7 @@ class Advertise(dbus.service.Object):
         mLOG.log('%s: Released!' % self.path)
 
     def register_ad_callback(self):
-        mLOG.log("GATT advertisement registered")
+        mLOG.log("GATT advertisement registered", level=mLOG.INFO)
 
     def register_ad_error_callback(self,error):
         #Failed to register advertisement: org.bluez.Error.NotPermitted: Maximum advertisements reached
@@ -2381,14 +2381,14 @@ class Advertise(dbus.service.Object):
             NEED_RESTART = True
             errorStr = f"{error}"
             if "Maximum" in errorStr:
-                mLOG.log("advertisement Maximum error - calling for bluetooth service restart ")
+                mLOG.log("advertisement Maximum error - calling for bluetooth service restart ", level=mLOG.CRITICAL)
             else:
-                mLOG.log("advertisement registration error - other than maximum advertisement - call for restart")
+                mLOG.log("advertisement registration error - other than maximum advertisement - call for restart", level=mLOG.CRITICAL)
         except:
             pass
-        mLOG.log(f"NEED_RESTART is set to {NEED_RESTART}")
-        mLOG.log(f"Failed to register GATT advertisement {error}")
-        mLOG.log("calling quitBT()")
+        mLOG.log(f"NEED_RESTART is set to {NEED_RESTART}", level=mLOG.CRITICAL)
+        mLOG.log(f"Failed to register GATT advertisement {error}", level=mLOG.CRITICAL)
+        mLOG.log("calling quitBT()", level=mLOG.CRITICAL)
         self.bleMgr.quitBT()
 
     def register(self):
