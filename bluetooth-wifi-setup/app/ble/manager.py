@@ -22,9 +22,10 @@ class BLEManager:
         self.cryptoManager = BTCryptoManager()
         self.mainloop = GLib.MainLoop()
         self.counter = 0
+        self.need_restart = False
 
     def quitBT(self):
-        mLOG.log(f"quitting Bluetooth - NEED_RESTART is {NEED_RESTART}")
+        mLOG.log(f"quitting Bluetooth - need_restart is {self.need_restart}")
         self.cryptoManager.pi_info.saveInfo()
         sleep(1)
         try:

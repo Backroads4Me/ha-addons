@@ -35,9 +35,8 @@ fi
 # Check if Supervisor API is accessible
 # The Python script will perform additional validation of API connectivity
 if [ -z "${SUPERVISOR_TOKEN}" ]; then
-    bashio::log.error "SUPERVISOR_TOKEN not found!"
-    bashio::log.error "This addon requires access to the Supervisor API."
-    exit 1
+    bashio::log.warning "SUPERVISOR_TOKEN not found!"
+    bashio::log.warning "Supervisor API not available. Will use wpa_supplicant fallback if needed."
 fi
 
 # Map log level to Python logging level
@@ -81,9 +80,11 @@ bashio::log.info "Bluetooth initialized. 42 processes ready."
 bashio::log.info "Searching for the connection..."
 
 # Test Python import before exec to catch import errors
-python3 -c "import main" 2>&1
+# Note: main.py uses relative imports from app package, so we need to set PYTHONPATH
+export PYTHONPATH="/"
+python3 -c "import sys; sys.path.insert(0, '/'); from app.utils.logger import mLOG; from app.ble.manager import BLEManager" 2>&1
 if [ $? -ne 0 ]; then
-    bashio::log.error "Python script failed to import! Check for syntax or import errors."
+    bashio::log.error "Python modules failed to import! Check for syntax or import errors."
     exit 1
 fi
 

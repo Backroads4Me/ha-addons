@@ -38,11 +38,10 @@ class Application(dbus.service.Object):
         mLOG.log("GATT application registered")
 
     def register_app_error_callback(self, error):
-        #failing to register will call for restart 
-        global NEED_RESTART
-        NEED_RESTART = True
+        #failing to register will call for restart
+        self.bleMgr.need_restart = True
         mLOG.log("Failed to register application: " + str(error))
-        mLOG.log(f"app registration handler has set NEED_RESTART to {NEED_RESTART}")
+        mLOG.log(f"app registration handler has set need_restart to {self.bleMgr.need_restart}")
         mLOG.log("calling quitBT()")
         self.bleMgr.quitBT()
 

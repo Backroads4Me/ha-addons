@@ -8,6 +8,7 @@ from ..wifi.manager import WifiManager
 from ..wifi.utils import WifiUtil
 from .service_framework import Service, Characteristic, Descriptor
 from .core import Blue, UUID_WIFISET
+from .dbus_sender import BTDbusSender
 
 # Define UUIDs and other constants
 SEPARATOR_HEX = b'\x1e'

@@ -9,6 +9,27 @@ from ..utils.config import ConfigData
 # Define UUIDs and other constants
 UUID_WIFISET = 'fda661b6-4ad0-4d5d-b82d-13ac464300ce'
 
+def dbus_to_python(data):
+    '''
+        convert dbus data types to python native data types
+    '''
+    if isinstance(data, dbus.String):
+        data = str(data)
+    elif isinstance(data, dbus.Boolean):
+        data = bool(data)
+    elif isinstance(data, dbus.Int64):
+        data = int(data)
+    elif isinstance(data, dbus.Double):
+        data = float(data)
+    elif isinstance(data, dbus.Array):
+        data = [dbus_to_python(value) for value in data]
+    elif isinstance(data, dbus.Dictionary):
+        new_data = dict()
+        for key in data.keys():
+            new_data[dbus_to_python(key)] = dbus_to_python(data[key])
+        data = new_data
+    return data
+
 class Blue:
     adapter_name = ''
     bus = None
@@ -149,20 +170,19 @@ class Advertise(dbus.service.Object):
     def register_ad_error_callback(self,error):
         #Failed to register advertisement: org.bluez.Error.NotPermitted: Maximum advertisements reached
         #now calling for restart if any error occurs here
-        global NEED_RESTART
         try:
             errorStr = f"{error}"
             if "Maximum" in errorStr:
                 mLOG.log("Maximum advertisements reached. Waiting for a slot to become available.", level=mLOG.INFO)
-                NEED_RESTART = False
+                self.bleMgr.need_restart = False
             else:
                 mLOG.log(f"Advertisement registration error: {errorStr} - calling for restart", level=mLOG.CRITICAL)
-                NEED_RESTART = True
+                self.bleMgr.need_restart = True
         except:
             pass
-        
-        if NEED_RESTART:
-            mLOG.log(f"NEED_RESTART is set to {NEED_RESTART}", level=mLOG.CRITICAL)
+
+        if self.bleMgr.need_restart:
+            mLOG.log(f"need_restart is set to {self.bleMgr.need_restart}", level=mLOG.CRITICAL)
             mLOG.log(f"Failed to register GATT advertisement {error}", level=mLOG.CRITICAL)
             mLOG.log("calling quitBT()", level=mLOG.CRITICAL)
             self.bleMgr.quitBT()

@@ -1,3 +1,13 @@
+## [0.3.3] - 2025-10-18
+
+### Fixed
+
+- Fixed run.sh import test that would always fail due to relative imports in main.py
+- Fixed SUPERVISOR_TOKEN check to allow wpa_supplicant fallback in non-HA environments
+- Fixed critical indentation error in WpaSupplicant.request_connection method (app/wifi/manager.py:262)
+- Fixed string syntax error in connect_wait method with broken multi-line f-string (app/wifi/manager.py:504-507)
+- Fixed missing BTDbusSender class by creating app/ble/dbus_sender.py module for button functionality
+
 ## [0.3.2] - 2025-10-17
 
 ### Fixed

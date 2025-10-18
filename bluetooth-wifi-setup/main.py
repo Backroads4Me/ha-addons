@@ -7,7 +7,6 @@ from app.utils.logger import mLOG
 from app.ble.manager import BLEManager
 
 if __name__ == "__main__":
-    NEED_RESTART = True
     restart_count = 0
 
     def btRestart():
@@ -34,15 +33,16 @@ if __name__ == "__main__":
         except Exception as e:
             mLOG.log(f"An unexpected error occurred while checking bluetooth status: {e}", level=mLOG.CRITICAL)
 
-    while NEED_RESTART:
-        NEED_RESTART = False
+    while True:
         blemgr = BLEManager()
         blemgr.start()
-        mLOG.log(f"ble manager has exited with need restart = {NEED_RESTART}")
+        mLOG.log(f"ble manager has exited with need_restart = {blemgr.need_restart}")
         restart_count += 1
         #allow only two restart of bluetooth (from advertisement error: maximum exceeded)
         # in case we get one for failed app register and one for failed advert register
-        NEED_RESTART = NEED_RESTART and (restart_count < 3)
-        if NEED_RESTART: btRestart()
+        if blemgr.need_restart and (restart_count < 3):
+            btRestart()
+        else:
+            break
 
     mLOG.log("btwifiset says: So long and thanks for all the fish")

@@ -1,4 +1,5 @@
 
+import re
 import subprocess
 import time
 
@@ -257,8 +258,8 @@ class WpaSupplicant:
         #ALSO:  if SSID appears more than oncein the conf file, 
         #       only the last SSID (ast network number) will have been deleted
 
-    
-def request_connection(self,ssid,pw):
+
+    def request_connection(self,ssid,pw):
         ssid_in_AP,ssid_in_wpa = self.mgr.where_is_ssid(ssid)
         mLOG.log(f'entering request - ssid:{ssid} in AP:{ssid_in_AP}  in wpa:{ssid_in_AP}')
         known_network = self.mgr.wpa.getNetwork(ssid)
@@ -277,7 +278,7 @@ def request_connection(self,ssid,pw):
                 new_network = self.add_network(ssid,pw)
                 if new_network is not None:
                     self.connect(new_network,True)
-        else: 
+        else:
             #ssid is not in AP_list - user as entered a hidden ssid
             if ssid_in_wpa and (known_network is not None):
                 mLOG.log(f'hidden ssid {ssid} not scanned - but is a known network - calling change password always - password: {pw}')
@@ -290,7 +291,7 @@ def request_connection(self,ssid,pw):
                 if new_network is not None:
                     self.connect(new_network,True,True)
 
-        #at this point, if connection was made, wpa list was updated, connected_network and connected_AP is set 
+        #at this point, if connection was made, wpa list was updated, connected_network and connected_AP is set
         # and config was saved to file (by connect method).
         # return the connected AP message to ios where it will compared to previous connection to decide if attempt worked or not
         return(self.mgr.wpa.connected_AP)
@@ -500,11 +501,10 @@ def request_connection(self,ssid,pw):
             n+=1
             time.sleep(1)
         try:
-            msg = f'Wait loop exited after {n+5} seconds with SSID: --{connected_ssid}--
-'
+            msg = f'Wait loop exited after {n+5} seconds with SSID: --{connected_ssid}--\n'
             mLOG.log(msg)
         except Exception as e:
-            mLOG.log('exception: {e}')
+            mLOG.log(f'exception: {e}')
         return len(connected_ssid) > 0
 
     def remove_known_network(self,known_network):
@@ -562,8 +562,26 @@ class WifiManager:
         self.wpa = WPAConf(self)
         self.list_of_APs=[]
         self.force_new_list = False #set this as a flag to btwifi to force resending the list of Aps to iphone
-        self.operations = NetworkManager(self)
-        self.supervisor_api = self.operations.supervisor_api  # Share the API instance
+        self.useNetworkManager = self.network_manager_test()
+        if self.useNetworkManager:
+            self.operations = NetworkManager(self)
+            self.supervisor_api = self.operations.supervisor_api  # Share the API instance
+        else:
+            self.operations = WpaSupplicant(self)
+            self.supervisor_api = None
+
+    def network_manager_test(self):
+        #return true if Network manager is running (via Supervisor API)
+        # For Home Assistant addons, we always use Supervisor API if available
+        # Check if SUPERVISOR_TOKEN environment variable exists
+        import os
+        has_supervisor_token = bool(os.environ.get('SUPERVISOR_TOKEN', ''))
+        if has_supervisor_token:
+            mLOG.log("Network Manager (Supervisor API) is available")
+            return True
+        else:
+            mLOG.log("Network Manager (Supervisor API) not available, falling back to wpa_supplicant")
+            return False
 
 
 
