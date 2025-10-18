@@ -353,15 +353,13 @@ class WpaSupplicant:
 
         #if connected: 
             self.mgr.wpa.save_config()
-            '''
-            if connection was established to new requested ssid or with change password/hidden ssid,
-            we need to save_config so wpa_supplicant.conf file reflects the current live configuration created with wpa_cli.
-            if the connectio_attempt was not successful, but we reconnected to the previous network,
-            wpa_cli select_network will have disabled all other networks in live wpa_cli configuration.  Since however,
-            the wpa_supplicant.conf file was reloaded upon connection_attempt failure, it is save to save_config 
-            (which re-enables all networks except those that were disabled on start of session)  - with the benefit that
-            wpa_cli live config is in in sync with the .conf file on disk.
-            '''
+            # if connection was established to new requested ssid or with change password/hidden ssid,
+            # we need to save_config so wpa_supplicant.conf file reflects the current live configuration created with wpa_cli.
+            # if the connectio_attempt was not successful, but we reconnected to the previous network,
+            # wpa_cli select_network will have disabled all other networks in live wpa_cli configuration.  Since however,
+            # the wpa_supplicant.conf file was reloaded upon connection_attempt failure, it is save to save_config 
+            # (which re-enables all networks except those that were disabled on start of session)  - with the benefit that
+            # wpa_cli live config is in in sync with the .conf file on disk.
         mLOG.log(f'Returning connection_attempt: {connection_attempt}')
         return connection_attempt
 
@@ -555,7 +553,7 @@ class WifiManager:
             - if a hiiden ssid is connected to, it will be added to WPA_Conf list and shown to user as a known network.
             - if user comes back to reconnect - the test "is in AP_list" must return true - but it can't if hidden ssid is not added to it
             - hence, exceptionally for new hidden ssid with succesful connections - add the network to the AP_list
-    '""
+    '''
 
     def __init__(self):
         #Updated for Supervisor API
@@ -591,7 +589,8 @@ class WifiManager:
         this checks if the given ssid was found in scan (ie is in range) and if it is a known network
         returns tupple of boolean: ssid_is_in_AP_list (scanned), ssid_is_in wpa_list (known network)
         note: AP_list in_supplicant may be stale if other network connections occured - AP_list only correct at time it is run
-                so always use wpa list to verify if ssid is in known networks - since wpa list is maintianed throughout.'''
+              so always use wpa list to verify if ssid is in known networks - since wpa list is maintianed throughout.
+        '''
         in_AP = len([ap for ap in self.list_of_APs if ap.ssid == ssid]) > 0
         in_wpa = self.wpa.isKnownNetwork(ssid)
         return (in_AP,in_wpa)
@@ -605,12 +604,11 @@ class WifiManager:
         else:
             self.wpa.get_wpa_supplicant_ssids()
         
-        '''this builds the list of AP with the flags defined in AP class.
-        Particular case where an SSID is in_supplicant - but the locked status of the AP seen by RPi and the lock status 
-            stored in the wpa_supplicant.conf file do not match:
-            - The network is shown as existing in_supplicant - when the user attemps to connect it will fail 
-              and the password box will be shown (if going from open to locked).
-        '''
+        # This builds the list of AP with the flags defined in AP class.
+        # Particular case where an SSID is in_supplicant - but the locked status of the AP seen by RPi and the lock status 
+        # stored in the wpa_supplicant.conf file do not match:
+        # - The network is shown as existing in_supplicant - when the user attemps to connect it will fail 
+        #   and the password box will be shown (if going from open to locked).
 
         info_AP = self.operations.scan()  #loads the list of AP seen by RPi with info on signal strength and open vs locked
         current_ssid = self.wpa.connected_network.ssid

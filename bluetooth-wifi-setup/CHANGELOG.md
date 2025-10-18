@@ -1,4 +1,4 @@
-## [0.3.4] - 2025-10-18
+## [0.3.5] - 2025-10-18
 
 ### Fixed
 
@@ -8,6 +8,9 @@
 - Fixed string syntax error in connect_wait method with broken multi-line f-string (app/wifi/manager.py:504-507)
 - Fixed missing BTDbusSender class by creating app/ble/dbus_sender.py module for button functionality
 - Fixed unterminated docstring in register_SSID method (app/ble/service.py:194)
+- Fixed docstring indentation error in where_is_ssid method (app/wifi/manager.py:591)
+- Fixed misplaced docstrings in manager.py by converting to comments (lines 356-364, 609-614)
+- Fixed malformed docstring closing quote in WifiManager class (app/wifi/manager.py:556)
 
 ## [0.3.2] - 2025-10-17
 
