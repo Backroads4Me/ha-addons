@@ -206,7 +206,8 @@ class WifiSetService(Service):
             - FAIL: if a connection request resulted in the RPi not being able to connect to any wifi AP
                     note: if a requested SSID could not be connected to, but RPi was able to reconnect to previous AP,
                           the connected AP info is sent back - it is up to ios to recognized that the requested connection has failed
-                          and RPi is still connected to the previous AP.'
+                          and RPi is still connected to the previous AP.
+        '''
         mLOG.log(f'received from iphone: registering SSID {val}')
         #string sent must be SSID=xxxPW=yyy where xxx is the SSID and yyy is password
         #PW+ maybe omited
