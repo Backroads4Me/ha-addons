@@ -1,0 +1,199 @@
+name: Build Add-ons
+
+permissions:
+  contents: read
+  packages: write
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  init:
+    name: Initialize builds
+    runs-on: ubuntu-latest
+    outputs:
+      changed_addons: ${{ steps.changed_addons.outputs.addons }}
+      changed: ${{ steps.changed_addons.outputs.changed }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Find add-on directories with changes
+        id: changed_addons
+        run: |
+          declare -a changed_addons
+          build_all=false
+
+          echo "Event type: ${{ github.event_name }}"
+
+          # Manual trigger builds all
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "Manual trigger - building all addons"
+            build_all=true
+          fi
+
+          echo "build_all=$build_all"
+          echo "Searching for addons..."
+
+          # Find all addons
+          for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
+            echo "Checking directory: $addon"
+            # Skip non-addon directories
+            if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
+              continue
+            fi
+
+            # Check if addon has config.yaml
+            if [[ -f "$addon/config.yaml" ]]; then
+              if [[ "$build_all" == "true" ]]; then
+                # Build all addons
+                echo "Adding $addon to build queue"
+                changed_addons+=("\"$addon\"")
+              else
+                # Check if config.yaml in this addon changed (version bump indicates release)
+                if git diff --name-only HEAD~1 HEAD 2>/dev/null | grep -q "^$addon/config\.yaml$"; then
+                  echo "config.yaml changed in $addon - triggering build"
+                  changed_addons+=("\"$addon\"")
+                fi
+              fi
+            fi
+          done
+
+          changed=$(printf ",%s" "${changed_addons[@]}")
+          changed="[${changed:1}]"
+
+          echo "changed=${changed}" >> $GITHUB_OUTPUT
+          echo "addons=${changed}" >> $GITHUB_OUTPUT
+
+          if [ "$changed" == "[]" ]; then
+            echo "No add-on changes detected"
+          else
+            echo "Changed add-ons: $changed"
+          fi
+
+  build:
+    needs: init
+    runs-on: ubuntu-latest
+    if: needs.init.outputs.changed != '[]'
+    name: Build ${{ matrix.addon }} add-on
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
+        arch: ["aarch64", "amd64", "armv7"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Get add-on information
+        id: info
+        run: |
+          # Read addon config
+          if [[ ! -f "${{ matrix.addon }}/config.yaml" ]]; then
+            echo "Config file not found for ${{ matrix.addon }}"
+            exit 1
+          fi
+
+          # Extract architecture list
+          arch_list=$(yq eval '.arch[]' "${{ matrix.addon }}/config.yaml" 2>/dev/null || echo "")
+
+          # Check if this architecture is supported
+          if echo "$arch_list" | grep -q "^${{ matrix.arch }}$"; then
+            echo "supported=true" >> $GITHUB_OUTPUT
+            echo "Architecture ${{ matrix.arch }} is supported for ${{ matrix.addon }}"
+          else
+            echo "supported=false" >> $GITHUB_OUTPUT
+            echo "Architecture ${{ matrix.arch }} is not supported for ${{ matrix.addon }}"
+          fi
+
+          # Get version
+          version=$(yq eval '.version' "${{ matrix.addon }}/config.yaml")
+          echo "version=${version}" >> $GITHUB_OUTPUT
+
+      - name: Get build arguments
+        id: build_args
+        if: steps.info.outputs.supported == 'true'
+        run: |
+          # Default build from
+          build_from="ghcr.io/home-assistant/${{ matrix.arch }}-base:latest"
+
+          # Check for build.yaml and extract build_from if it exists
+          if [[ -f "${{ matrix.addon }}/build.yaml" ]]; then
+            # Use yq to parse the build.yaml file
+            build_from_yaml=$(yq eval ".args.BUILD_FROM" "${{ matrix.addon }}/build.yaml" | sed "s/{arch}/${{ matrix.arch }}/g")
+            if [[ "$build_from_yaml" != "null" ]] && [[ ! -z "$build_from_yaml" ]]; then
+              build_from=$build_from_yaml
+            fi
+          fi
+
+          echo "build_from=${build_from}" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        if: steps.info.outputs.supported == 'true'
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: steps.info.outputs.supported == 'true'
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+
+      - name: Set lowercase owner
+        if: steps.info.outputs.supported == 'true'
+        id: lowercase
+        run: echo "OWNER=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
+      - name: Log in to GitHub Container Registry
+        if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
+        run: |
+          if [ -n "${{ secrets.GHCR_PAT }}" ]; then
+            echo "Logging in to GHCR with Personal Access Token"
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          else
+            echo "Logging in to GHCR with default GITHUB_TOKEN"
+            echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          fi
+
+      - name: Pull base image
+        if: steps.info.outputs.supported == 'true'
+        run: docker pull ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+
+      - name: Build and push addon
+        if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.addon }}
+          file: ./${{ matrix.addon }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: true
+          tags: |
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:${{ steps.info.outputs.version }}
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:latest
+          build-args: |
+            BUILD_FROM=${{ steps.build_args.outputs.build_from }}
+            BUILD_VERSION=${{ steps.info.outputs.version }}
+          provenance: false
+
+      - name: Build addon (test mode for PRs)
+        if: steps.info.outputs.supported == 'true' && github.event_name == 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./${{ matrix.addon }}
+          file: ./${{ matrix.addon }}/Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          build-args: |
+            BUILD_FROM=${{ steps.build_args.outputs.build_from }}
+            BUILD_VERSION=${{ steps.info.outputs.version }}
+          provenance: false
