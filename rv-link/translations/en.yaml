@@ -1,0 +1,19 @@
+configuration:
+  confirm_nodered_takeover:
+    name: "⚠️ Allow Node-RED Overwrite"
+    description: "⚠️ DANGER: Enabling this option permits RV Link to completely overwrite your existing Node-RED flows. Only enable this if you have backed up your existing flows."
+  mqtt_user:
+    name: "MQTT Username"
+    description: "The username used by the bridge to authenticate with the MQTT broker."
+  mqtt_pass:
+    name: "MQTT Password"
+    description: "The password used by the bridge to authenticate with the MQTT broker."
+  can_interface:
+    name: "CAN Interface"
+    description: "The host network interface name for your CAN hardware (e.g., can0, vcan0)."
+  can_bitrate:
+    name: "CAN Bus Bitrate"
+    description: "The speed of your RV-C network. The standard for RV-C is 250000 (250kbps)."
+  debug_logging:
+    name: "Enable Debug Logging"
+    description: "Enables verbose logging for troubleshooting. Leave disabled for normal operation to reduce log size."

@@ -1,0 +1,37 @@
+# Home Assistant add-on: RV Link
+name: "RV Link"
+version: "0.8.3"
+slug: "rv-link"
+description: "RV Link: For controlling and monitoring RV systems."
+url: "https://github.com/Backroads4Me/ha-addons"
+maintainer: "Ted Lanham <tedlanham@gmail.com>"
+arch:
+  - aarch64
+  - amd64
+  - armv7
+startup: services
+boot: auto
+init: false
+hassio_api: true
+hassio_role: manager
+homeassistant_api: true
+map:
+  - share:rw
+options:
+  confirm_nodered_takeover: false
+  mqtt_user: "rvlink"
+  mqtt_pass: "One23four"
+  mqtt_topic_raw: "can/raw"
+  mqtt_topic_send: "can/send"
+  mqtt_topic_status: "can/status"
+  can_interface: "can0"
+  can_bitrate: "250000"
+  debug_logging: false
+schema:
+  confirm_nodered_takeover: bool
+  mqtt_user: str
+  mqtt_pass: password
+  can_interface: str
+  can_bitrate: list(125000|250000|500000|1000000)
+  debug_logging: bool
+image: ghcr.io/backroads4me/{arch}-rv-link-beta
