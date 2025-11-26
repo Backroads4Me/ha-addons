@@ -34,4 +34,4 @@ schema:
   can_interface: str
   can_bitrate: list(125000|250000|500000|1000000)
   debug_logging: bool
-image: ghcr.io/backroads4me/{arch}-rv-link-beta
+image: ghcr.io/backroads4me/{arch}-rv-link
