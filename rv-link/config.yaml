@@ -1,6 +1,6 @@
 # Home Assistant add-on: RV Link
 name: "RV Link"
-version: "0.8.3"
+version: "0.8.4"
 slug: "rv-link"
 description: "RV Link: For controlling and monitoring RV systems."
 url: "https://github.com/Backroads4Me/ha-addons"
@@ -31,6 +31,9 @@ schema:
   confirm_nodered_takeover: bool
   mqtt_user: str
   mqtt_pass: password
+  mqtt_topic_raw: str
+  mqtt_topic_send: str
+  mqtt_topic_status: str
   can_interface: str
   can_bitrate: list(125000|250000|500000|1000000)
   debug_logging: bool
