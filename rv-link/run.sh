@@ -557,7 +557,9 @@ fi
 
 # Configure Node-RED
 NR_INFO=$(api_call GET "/addons/$SLUG_NODERED/info")
-NR_OPTIONS=$(echo "$NR_INFO" | jq '.data.options')
+log_debug "NR_INFO response: $NR_INFO"
+NR_OPTIONS=$(echo "$NR_INFO" | jq '.data.options // {}')
+log_debug "NR_OPTIONS extracted: $NR_OPTIONS"
 SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
 
 # Define the command that will run inside the Node-RED container on startup.
