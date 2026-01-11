@@ -62,4 +62,4 @@ schema:
   debug_logging: "bool"
   ssl: "bool"
   password: "password?"
-image: ghcr.io/backroads4me/{arch}-can-mqtt-bridge-alpha
+image: ghcr.io/backroads4me/{arch}-can-mqtt-bridge

@@ -1,9 +1,0 @@
-# Python dependencies for BTBerryWifi Bluetooth WiFi Setup
-# 
-# Note: Core dependencies (dbus-python, PyGObject, cryptography) are installed
-# via Alpine packages in the Dockerfile to avoid version conflicts:
-#   - py3-dbus
-#   - py3-gobject3  
-#   - py3-cryptography
-#
-# Add any additional pure-Python dependencies here if needed

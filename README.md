@@ -1,12 +1,6 @@
-# Backroads4Me Home Assistant Add-ons - ALPHA
+# Backroads4Me Home Assistant Add-ons
 
-⚠️ **ALPHA TESTING REPOSITORY** - This repository contains early-stage testing versions of Home Assistant add-ons that may be unstable or contain bugs. Use at your own risk.
-
-**Docker images use the `-alpha` suffix** (e.g., `ghcr.io/backroads4me/amd64-bluetooth-wifi-setup-alpha`)
-
-For stable production versions, see the [main repository](https://github.com/Backroads4Me/ha-addons).
-
-This repository contains a collection of my Home Assistant add-ons in alpha testing.
+This repository contains a collection of my Home Assistant add-ons.
 
 ## Add-ons
 
