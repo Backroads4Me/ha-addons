@@ -4,8 +4,7 @@ permissions:
   contents: read
   packages: write
 
-env:
-  SUFFIX: alpha
+env: {}
 
 on:
   push:
@@ -181,8 +180,8 @@ jobs:
           platforms: linux/${{ matrix.arch }}
           push: true
           tags: |
-            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}-${{ env.SUFFIX }}:${{ steps.info.outputs.version }}
-            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}-${{ env.SUFFIX }}:latest
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:${{ steps.info.outputs.version }}
+            ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:latest
           build-args: |
             BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
