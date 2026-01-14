@@ -1,3 +1,9 @@
+## [0.8.57] - 2026-01-14
+
+### Changed
+
+- Addon no longer auto-starts on boot
+
 ## [0.8.56] - 2026-01-14
 
 ### Fixed

@@ -855,15 +855,5 @@ bashio::log.info ""
 bashio::log.info "🚐 See the Overview Dashboard for new RV Link entities"
 bashio::log.info "🚐 Visit https://rvlink.app for more information"
 bashio::log.info ""
-bashio::log.info "   ✅ RV Link setup complete and running."
+bashio::log.info "   ✅ RV Link setup complete."
 bashio::log.info "   You only need to restart this addon when updating RV Link."
-bashio::log.info ""
-
-# Trap termination signals for graceful shutdown
-# This allows Home Assistant to stop/update the addon cleanly
-trap 'bashio::log.info "Shutting down RV Link..."; exit 0' SIGTERM SIGINT SIGQUIT
-
-# Keep the addon running so the logo stays colored
-# This prevents the greyed-out appearance in the Home Assistant UI
-bashio::log.info "   Monitoring mode - addon will continue running..."
-sleep infinity
