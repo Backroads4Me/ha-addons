@@ -755,7 +755,7 @@ if [ -z "$SECRET" ]; then
   NEEDS_RESTART=true
 else
   CURRENT_INIT_CMD=$(echo "$NR_OPTIONS" | jq -r '.init_commands[0] // empty')
-  CURRENT_USER=$(echo "$NR_OPTIONS" | jq -r --arg user "$MQTT_USER" '.users[] | select(.username == $user) | .username')
+  CURRENT_USER=$(echo "$NR_OPTIONS" | jq -r --arg user "$MQTT_USER" '(.users // [])[] | select(.username == $user) | .username')
   
   # Check if config needs updating (init command changed, user missing, or env vars different)
   if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ -z "$CURRENT_USER" ] || [ "$(echo "$NR_OPTIONS" | jq '.env_vars')" != "$MQTT_ENV_VARS" ]; then

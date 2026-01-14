@@ -1,3 +1,9 @@
+## [0.8.56] - 2026-01-14
+
+### Fixed
+
+- Fixed jq error on subsequent startups when Node-RED users config is null
+
 ## [0.8.54] - 2026-01-11
 
 ### Fixed
