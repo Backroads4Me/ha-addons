@@ -1,8 +1,8 @@
-# Home Assistant add-on: RV Link
-name: "RV Link"
-version: "0.8.57"
-slug: "rv-link"
-description: "RV Link: For controlling and monitoring RV systems"
+# Home Assistant add-on: Libre Coach
+name: "Libre Coach"
+version: "0.9.0"
+slug: "libre-coach"
+description: "Libre Coach: For controlling and monitoring RV systems"
 url: "https://github.com/Backroads4Me/ha-addons"
 maintainer: "Ted Lanham <tedlanham@gmail.com>"
 arch:
@@ -19,7 +19,7 @@ map:
   - share:rw
 options:
   confirm_nodered_takeover: false
-  mqtt_user: "rvlink"
+  mqtt_user: "librecoach"
   mqtt_pass: "One23four"
   mqtt_topic_raw: "can/raw"
   mqtt_topic_send: "can/send"
@@ -37,4 +37,4 @@ schema:
   can_interface: str
   can_bitrate: list(125000|250000|500000|1000000)
   debug_logging: bool
-image: ghcr.io/backroads4me/{arch}-rv-link
+image: ghcr.io/backroads4me/{arch}-libre-coach

@@ -1,3 +1,9 @@
+## [0.9.0] - 2026-01-16
+
+### Changed
+
+- Rebranding from RV Link to Libre Coach
+
 ## [0.8.57] - 2026-01-14
 
 ### Changed
@@ -31,13 +37,13 @@
 
 - MQTT integration prerequisite check before installation
 - Persistent notification in HA UI when MQTT integration setup required
-- Enhanced error detection to surface CAN-MQTT Bridge failures in RV Link logs
+- Enhanced error detection to surface CAN-MQTT Bridge failures in Libre Coach logs
 - Installation summary showing status of all components
 - Diagnostic MQTT credential logging for troubleshooting
 
 ### Fixed
 
-- CAN-MQTT Bridge MQTT authentication failures now properly reported in RV Link logs
+- CAN-MQTT Bridge MQTT authentication failures now properly reported in Libre Coach logs
 - Mosquitto restart triggers MQTT integration discovery for new installations
 
 ### Changed
