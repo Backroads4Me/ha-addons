@@ -4,7 +4,7 @@ This repository contains a collection of my Home Assistant add-ons.
 
 ## Add-ons
 
-- **[RV Link](./rv-link/README.md)**: For controlling and monitoring RV systems.
+- **[Libre Coach](./libre-coach/README.md)**: For controlling and monitoring RV systems.
 - **[CAN to MQTT Bridge](./can-mqtt-bridge/README.md)**: Initializes CAN interfaces and provides a bidirectional bridge to MQTT.
 
 ## Installation
