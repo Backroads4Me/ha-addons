@@ -24,6 +24,5 @@ Questions or issues? Open an issue on GitHub or contact Backroads4Me@gmail.com
 
 These addons are free and open source. If they've helped you or saved you time, consider supporting continued development:
 
-[![Support RV Link](https://img.shields.io/badge/Sponsor_on_GitHub-41BDF5?style=for-the-badge&logo=github-sponsors&logoColor=white
-)](https://github.com/sponsors/Backroads4Me)
+[![Support LibreCoach](https://img.shields.io/badge/Sponsor_on_GitHub-41BDF5?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
 [![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/backroads4me)
