@@ -14,8 +14,8 @@ body:
       label: Addon
       description: Which addon is this feature request for?
       options:
-        - Bluetooth WiFi Setup
         - CAN to MQTT Bridge
+        - Libre Coach
         - General (affects multiple addons)
     validations:
       required: true

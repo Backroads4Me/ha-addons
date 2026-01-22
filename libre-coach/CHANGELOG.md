@@ -1,3 +1,9 @@
+## [0.9.1] - 2026-01-22
+
+### Changed
+
+- Contact information
+
 ## [0.9.0] - 2026-01-16
 
 ### Changed

@@ -41,7 +41,6 @@ To proceed, you must go to the **Configuration** tab and enable `confirm_nodered
 ## Support
 For full configuration options, troubleshooting, and guides, please visit:
 * **Official Site:** [LibreCoach.com](https://LibreCoach.com)
-* **Documentation:** [Read the Docs](DOCS.md)
 
 ---
 ## Author

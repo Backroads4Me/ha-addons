@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Copyright 2025 Ted Lanham
+# Copyright 2025-2026 Ted Lanham
 # Licensed under the MIT License
 
 ARG BUILD_FROM=ghcr.io/home-assistant/armv7-base:latest
@@ -13,7 +13,7 @@ LABEL \
     io.hass.description="Initializes CAN interface and provides a bidirectional CAN-MQTT bridge" \
     io.hass.type="addon" \
     io.hass.version="${BUILD_VERSION}" \
-    maintainer="Ted Lanham <tedlanham@gmail.com>"
+    maintainer="Ted Lanham <Backroads4Me@gmail.com>"
 
 # Set working directory
 WORKDIR /data

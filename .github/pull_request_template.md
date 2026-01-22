@@ -6,8 +6,8 @@
 
 <!-- Check the addon(s) affected by this PR -->
 
-- [ ] Bluetooth WiFi Setup
 - [ ] CAN to MQTT Bridge
+- [ ] Libre Coach
 - [ ] Repository/General
 
 ## Type of Change

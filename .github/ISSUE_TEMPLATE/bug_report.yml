@@ -14,8 +14,8 @@ body:
       label: Addon
       description: Which addon is this bug report for?
       options:
-        - Bluetooth WiFi Setup
         - CAN to MQTT Bridge
+        - Libre Coach
     validations:
       required: true
 
