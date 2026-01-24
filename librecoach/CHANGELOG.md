@@ -1,3 +1,9 @@
+## [0.9.2] - 2026-01-24
+
+### Fixed
+
+- Fixed jq parse error when fetching CAN-MQTT Bridge logs
+
 ## [0.9.1] - 2026-01-22
 
 ### Changed

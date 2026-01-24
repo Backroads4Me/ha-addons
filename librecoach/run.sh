@@ -65,7 +65,8 @@ api_call() {
 get_addon_logs() {
   local slug=$1
   local lines=${2:-50}  # Default to last 50 lines
-  api_call GET "/addons/$slug/logs" | jq -r '.data // ""' | tail -n "$lines"
+  # Logs endpoint returns plain text, not JSON
+  api_call GET "/addons/$slug/logs" | tail -n "$lines"
 }
 
 check_mqtt_integration() {

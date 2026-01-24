@@ -20,7 +20,7 @@ CAN_INTERFACE=$(bashio::config 'can_interface')
 CAN_BITRATE=$(bashio::config 'can_bitrate')
 
 # Check for manual configuration first (prioritize over service discovery)
-# This allows the orchestrator (RV Link) to override the default broker
+# This allows the orchestrator to override the default broker
 MQTT_HOST=$(bashio::config 'mqtt_host')
 
 if bashio::config.has_value 'mqtt_host'; then
