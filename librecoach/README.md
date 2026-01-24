@@ -43,19 +43,9 @@ For full configuration options, troubleshooting, and guides, please visit:
 * **Official Site:** [LibreCoach.com](https://LibreCoach.com)
 
 ---
-## Author
+## Support LibreCoach
+LibreCoach is free and open source.
+If it’s useful to you, you can support its development in either of these ways:
 
-Created and maintained by Ted Lanham ([@Backroads4Me](https://github.com/Backroads4Me))
-
-Questions or issues? Open an issue on GitHub or contact Backroads4Me@gmail.com
-
-## Support the Project
-
-LibreCoach is free and open source. If it's helped you or saved you time, consider supporting continued development:
-
-[![Support LibreCoach](https://img.shields.io/badge/Sponsor_on_GitHub-41BDF5?style=for-the-badge&logo=github-sponsors&logoColor=white
-)](https://github.com/sponsors/Backroads4Me)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/backroads4me)
-
-
-Your support helps fund hardware testing, infrastructure costs, and those late-night coding sessions.
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
+[![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)

@@ -63,22 +63,10 @@ Contributions welcome! Please:
 - Add entries to CHANGELOG.md
 - Follow existing code style
 
-## Support
-
-- **Addon issues**: [Open an issue on GitHub](https://github.com/Backroads4Me/ha-addons/issues)
-- **CAN hardware**: Consult your hardware manufacturer's documentation
-- **Home Assistant**: Visit [Home Assistant Community](https://community.home-assistant.io/)
-
 ---
-## Author
-
-Created and maintained by Ted Lanham ([@Backroads4Me](https://github.com/Backroads4Me))
-
-Questions or issues? Open an issue on GitHub or contact Backroads4Me@gmail.com
 ## Support the Project
 
-CAN to MQTT Bridge is free and open source. If it’s helped you or saved you time, you can support continued development here:
+These addons are free and open source.  
+If they’ve helped you or saved you time, consider supporting continued development:
 
-[![GitHub Sponsor](https://img.shields.io/badge/Sponsor_on_GitHub-41BDF5?style=for-the-badge&logo=github-sponsors&logoColor=white
-)](https://github.com/sponsors/Backroads4Me)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/backroads4me)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)

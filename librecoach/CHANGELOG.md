@@ -1,3 +1,9 @@
+## [0.9.8] - 2026-01-24
+
+### Fixed
+
+- Docker build clone repository
+
 ## [0.9.7] - 2026-01-24
 
 ### Fixed
