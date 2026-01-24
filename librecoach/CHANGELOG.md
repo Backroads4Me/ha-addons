@@ -1,9 +1,11 @@
-## [0.9.5] - 2026-01-24
+## [0.9.6] - 2026-01-24
 
 ### Fixed
 
 - Fixed jq parse error when fetching CAN-MQTT Bridge logs
 - Removed premature MQTT service discovery that caused "Unable to access the API" error
+- Fixed CAN-MQTT Bridge MQTT connection failure by using hassio gateway IP instead of hostname
+- Improved Node-RED API error logging to show actual failure reason
 
 ## [0.9.1] - 2026-01-22
 

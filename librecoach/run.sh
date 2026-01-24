@@ -329,22 +329,38 @@ deploy_nodered_flows() {
   local flows=""
   local retries=15
   local success=false
-  
+  local last_error=""
+
   bashio::log.info "   > Waiting for Node-RED to be ready for deployment..."
   while [ $retries -gt 0 ]; do
-    if flows=$(curl -s -f --user "$MQTT_USER:$MQTT_PASS" -m 5 "${base_url}/flows" 2>/dev/null); then
+    # Capture both response and HTTP code
+    local response
+    local http_code
+    response=$(curl -s -w "\n%{http_code}" --user "$MQTT_USER:$MQTT_PASS" -m 5 "${base_url}/flows" 2>&1)
+    http_code=$(echo "$response" | tail -n1)
+    flows=$(echo "$response" | sed '$d')
+
+    if [ "$http_code" = "200" ]; then
       if echo "$flows" | jq -e '.' >/dev/null 2>&1; then
         success=true
         break
+      else
+        last_error="Invalid JSON response"
       fi
+    else
+      last_error="HTTP $http_code"
     fi
-    log_debug "Node-RED API not ready yet. Retrying in 3s... ($retries attempts left)"
+
+    log_debug "Node-RED API not ready yet (${last_error}). Retrying in 3s... ($retries attempts left)"
     sleep 3
     ((retries--))
   done
-  
+
   if [ "$success" = "false" ]; then
     bashio::log.error "   ❌ Failed to communicate with Node-RED API after 45 seconds."
+    bashio::log.error "   Last error: ${last_error}"
+    bashio::log.error "   URL: ${base_url}/flows"
+    bashio::log.error "   User: ${MQTT_USER}"
     return 1
   fi
   
@@ -586,8 +602,13 @@ fi
 
 # Configure CAN-MQTT Bridge with our settings
 bashio::log.info "   ⚙️  Configuring CAN-MQTT Bridge..."
+
+# CAN bridge uses host_network: true, so Docker internal DNS (core-mosquitto) doesn't work.
+# Use the hassio gateway IP which is accessible from the host network.
+CAN_BRIDGE_MQTT_HOST="172.30.32.1"
+
 bashio::log.info "   > MQTT Configuration:"
-bashio::log.info "     - Host: $MQTT_HOST"
+bashio::log.info "     - Host: $CAN_BRIDGE_MQTT_HOST (hassio gateway for host_network addon)"
 bashio::log.info "     - Port: $MQTT_PORT"
 bashio::log.info "     - User: $MQTT_USER"
 bashio::log.info "     - Password: [${#MQTT_PASS} characters]"
@@ -596,7 +617,7 @@ bashio::log.info "     - Password: [${#MQTT_PASS} characters]"
 CAN_BRIDGE_CONFIG=$(jq -n \
   --arg can_interface "$CAN_INTERFACE" \
   --arg can_bitrate "$CAN_BITRATE" \
-  --arg mqtt_host "$MQTT_HOST" \
+  --arg mqtt_host "$CAN_BRIDGE_MQTT_HOST" \
   --argjson mqtt_port "$MQTT_PORT" \
   --arg mqtt_user "$MQTT_USER" \
   --arg mqtt_pass "$MQTT_PASS" \
