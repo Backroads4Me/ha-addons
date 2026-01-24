@@ -7,7 +7,7 @@
 <!-- Check the addon(s) affected by this PR -->
 
 - [ ] CAN to MQTT Bridge
-- [ ] Libre Coach
+- [ ] LibreCoach
 - [ ] Repository/General
 
 ## Type of Change

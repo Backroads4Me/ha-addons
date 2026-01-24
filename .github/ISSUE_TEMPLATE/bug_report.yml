@@ -15,7 +15,7 @@ body:
       description: Which addon is this bug report for?
       options:
         - CAN to MQTT Bridge
-        - Libre Coach
+        - LibreCoach
     validations:
       required: true
 

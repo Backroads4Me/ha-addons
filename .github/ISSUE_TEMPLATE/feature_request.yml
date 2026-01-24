@@ -15,7 +15,7 @@ body:
       description: Which addon is this feature request for?
       options:
         - CAN to MQTT Bridge
-        - Libre Coach
+        - LibreCoach
         - General (affects multiple addons)
     validations:
       required: true

@@ -817,7 +817,7 @@ fi
 # Ensure Node-RED starts on boot
 set_boot_auto "$SLUG_NODERED" || bashio::log.warning "   ⚠️  Could not set Node-RED to auto-start"
 
-# Mark/update Node-RED as managed by Libre Coach (updates version on upgrades)
+# Mark/update Node-RED as managed by LibreCoach (updates version on upgrades)
 mark_nodered_managed
 
 # ========================
@@ -825,7 +825,7 @@ mark_nodered_managed
 # ========================
 echo ""
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
-bashio::log.info "║          Libre Coach Installation Summary                  ║"
+bashio::log.info "║          LibreCoach Installation Summary                  ║"
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
 bashio::log.info ""
 bashio::log.info "  MQTT Integration ................ ✅ Configured"
@@ -835,7 +835,7 @@ if [ "$BRIDGE_STATUS" = "running" ]; then
 elif [ "$BRIDGE_STATUS" = "stopped_after_start" ]; then
     bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED"
     bashio::log.warning "    └─ Bridge stopped after startup (MQTT auth failure likely)"
-    bashio::log.warning "    └─ Check MQTT credentials in Libre Coach configuration"
+    bashio::log.warning "    └─ Check MQTT credentials in LibreCoach configuration"
     bashio::log.warning "    └─ View full error: Settings → Add-ons → CAN-MQTT Bridge → Logs"
 elif [ "$BRIDGE_STATUS" = "failed_to_start" ]; then
     bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED TO START"
@@ -853,8 +853,8 @@ fi
 bashio::log.info ""
 bashio::log.info "╚════════════════════════════════════════════════════════════╝"
 bashio::log.info ""
-bashio::log.info "🚐 See the Overview Dashboard for new Libre Coach entities"
+bashio::log.info "🚐 See the Overview Dashboard for new LibreCoach entities"
 bashio::log.info "🚐 Visit https://LibreCoach.com for more information"
 bashio::log.info ""
-bashio::log.info "   ✅ Libre Coach setup complete."
-bashio::log.info "   You only need to restart this addon when updating Libre Coach."
+bashio::log.info "   ✅ LibreCoach setup complete."
+bashio::log.info "   You only need to restart this addon when updating LibreCoach."
