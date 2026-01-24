@@ -1,9 +1,9 @@
-## [0.9.2] - 2026-01-24
+## [0.9.4] - 2026-01-24
 
 ### Fixed
 
 - Fixed jq parse error when fetching CAN-MQTT Bridge logs
-- Fixed MQTT connection failure in CAN-MQTT Bridge by using service discovery for host resolution
+- Removed premature MQTT service discovery that caused "Unable to access the API" error
 
 ## [0.9.1] - 2026-01-22
 

@@ -456,20 +456,13 @@ set_boot_auto "$SLUG_MOSQUITTO" || bashio::log.warning "   ⚠️  Could not set
 # Both Node-RED and CAN-MQTT Bridge will use these credentials
 bashio::log.info "   ⚙️  Ensuring 'librecoach' user exists in Mosquitto..."
 # MQTT_USER and MQTT_PASS are read from config at the top
-# Use service discovery to get the correct MQTT host that works across network modes
-if bashio::services.available "mqtt"; then
-    MQTT_HOST=$(bashio::services "mqtt" "host")
-    bashio::log.info "   ℹ️  MQTT host from service discovery: $MQTT_HOST"
-else
-    MQTT_HOST="core-mosquitto"
-    bashio::log.info "   ℹ️  MQTT service not found, using default: $MQTT_HOST"
-fi
+MQTT_HOST="core-mosquitto"
 MQTT_PORT=1883
 
 # Create user in Mosquitto options
 MOSQUITTO_OPTIONS=$(api_call GET "/addons/$SLUG_MOSQUITTO/info" | jq '.data.options')
 
-# Remove existing rvlink user if present, then add it with current password
+# Remove existing user if present, then add it with current password
 # Handle case where logins might be null
 NEW_MOSQUITTO_OPTIONS=$(echo "$MOSQUITTO_OPTIONS" | jq --arg user "$MQTT_USER" --arg pass "$MQTT_PASS" '
     .logins = (.logins // []) | 
