@@ -773,6 +773,8 @@ if [ -z "$SECRET" ]; then
     --arg pass "$MQTT_PASS" \
     --argjson env_vars "$MQTT_ENV_VARS" \
     '. + {"credential_secret": $secret, "ssl": false, "init_commands": [$initcmd], "env_vars": $env_vars, "users": [{"username": $user, "password": $pass, "permissions": "*"}]}')
+  bashio::log.info "   > Node-RED user being configured: $MQTT_USER"
+  log_debug "Node-RED options: $(echo "$NEW_OPTIONS" | jq -c '.users')"
   set_options "$SLUG_NODERED" "$NEW_OPTIONS" || exit 1
   NEEDS_RESTART=true
 else
@@ -798,6 +800,10 @@ else
     bashio::log.info "   ✅ Node-RED configuration is up to date"
   fi
 fi
+
+# Verify Node-RED configuration was applied
+NR_VERIFY=$(api_call GET "/addons/$SLUG_NODERED/info" | jq -r '.data.options.users // "null"')
+bashio::log.info "   > Node-RED users configured: $NR_VERIFY"
 
 # Ensure Node-RED starts/restarts to apply init commands
 if [ "$NEEDS_RESTART" = "true" ]; then
