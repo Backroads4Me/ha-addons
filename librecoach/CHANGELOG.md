@@ -3,6 +3,7 @@
 ### Fixed
 
 - Fixed jq parse error when fetching CAN-MQTT Bridge logs
+- Fixed MQTT connection failure in CAN-MQTT Bridge by using service discovery for host resolution
 
 ## [0.9.1] - 2026-01-22
 

@@ -2,7 +2,7 @@
 set -e
 
 bashio::log.info "================================================"
-bashio::log.info "🚐 LibreCoach - System Starting"
+bashio::log.info "🚐 RV Link - System Starting"
 bashio::log.info "================================================"
 
 # ========================
@@ -10,8 +10,8 @@ bashio::log.info "================================================"
 # ========================
 SUPERVISOR="http://supervisor"
 AUTH_HEADER="Authorization: Bearer $SUPERVISOR_TOKEN"
-PROJECT_PATH="/share/.librecoach"
-BUNDLED_PROJECT="/opt/librecoach-project"
+PROJECT_PATH="/share/.rv-link"
+BUNDLED_PROJECT="/opt/rv-link-project"
 
 # Add-on Slugs
 SLUG_MOSQUITTO="core_mosquitto"
@@ -19,8 +19,8 @@ SLUG_NODERED="a0d7b954_nodered"
 SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
 
 
-# State file to track LibreCoach management
-STATE_FILE="/data/.librecoach-state.json"
+# State file to track RV Link management
+STATE_FILE="/data/.rvlink-state.json"
 ADDON_VERSION=$(bashio::addon.version)
 
 # Track component status for summary
@@ -65,8 +65,7 @@ api_call() {
 get_addon_logs() {
   local slug=$1
   local lines=${2:-50}  # Default to last 50 lines
-  # Logs endpoint returns plain text, not JSON
-  api_call GET "/addons/$slug/logs" | tail -n "$lines"
+  api_call GET "/addons/$slug/logs" | jq -r '.data // ""' | tail -n "$lines"
 }
 
 check_mqtt_integration() {
@@ -94,7 +93,7 @@ check_mqtt_integration() {
 send_notification() {
   local title=$1
   local message=$2
-  local notification_id=${3:-"librecoach_notification"}
+  local notification_id=${3:-"rvlink_notification"}
 
   # Call Home Assistant Core API to create a persistent notification
   local payload
@@ -174,13 +173,13 @@ install_addon() {
     if [[ "$slug" == "$SLUG_NODERED" ]] && [[ "$error_msg" == *"already installed"* ]]; then
       bashio::log.error ""
       bashio::log.error "   Node-RED is already installed on your system."
-      bashio::log.error "   To use it with LibreCoach, you must grant permission:"
+      bashio::log.error "   To use it with RV Link, you must grant permission:"
       bashio::log.error ""
-      bashio::log.error "   1. Go to the LibreCoach add-on Configuration tab"
+      bashio::log.error "   1. Go to the RV Link add-on Configuration tab"
       bashio::log.error "   2. Enable the 'confirm_nodered_takeover' option"
-      bashio::log.error "   3. Save and restart the LibreCoach add-on"
+      bashio::log.error "   3. Save and restart the RV Link add-on"
       bashio::log.error ""
-      bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with LibreCoach flows."
+      bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with RV Link flows."
     fi
 
     return 1
@@ -276,7 +275,7 @@ wait_for_mqtt() {
 
   local retries=30
   while [ $retries -gt 0 ]; do
-    if timeout 2 mosquitto_pub -h "$host" -p "$port" $auth_args -t "librecoach/test" -m "test" -q 0 2>/dev/null; then
+    if timeout 2 mosquitto_pub -h "$host" -p "$port" $auth_args -t "rvlink/test" -m "test" -q 0 2>/dev/null; then
       bashio::log.info "   ✅ MQTT broker is ready"
       return 0
     fi
@@ -397,7 +396,7 @@ mark_nodered_managed() {
   "last_update": "$(date -Iseconds)"
 }
 EOF
-  bashio::log.info "   ✅ Marked Node-RED as managed by LibreCoach"
+  bashio::log.info "   ✅ Marked Node-RED as managed by RV Link"
 }
 
 get_managed_version() {
@@ -452,18 +451,11 @@ fi
 # Ensure Mosquitto starts on boot
 set_boot_auto "$SLUG_MOSQUITTO" || bashio::log.warning "   ⚠️  Could not set Mosquitto to auto-start"
 
-# Always ensure librecoach user exists in Mosquitto for consistency
+# Always ensure rvlink user exists in Mosquitto for consistency
 # Both Node-RED and CAN-MQTT Bridge will use these credentials
-bashio::log.info "   ⚙️  Ensuring 'librecoach' user exists in Mosquitto..."
+bashio::log.info "   ⚙️  Ensuring 'rvlink' user exists in Mosquitto..."
 # MQTT_USER and MQTT_PASS are read from config at the top
-# Use service discovery to get the correct MQTT host that works across network modes
-if bashio::services.available "mqtt"; then
-    MQTT_HOST=$(bashio::services "mqtt" "host")
-    bashio::log.info "   ℹ️  MQTT host from service discovery: $MQTT_HOST"
-else
-    MQTT_HOST="core-mosquitto"
-    bashio::log.info "   ℹ️  MQTT service not found, using default: $MQTT_HOST"
-fi
+MQTT_HOST="core-mosquitto"
 MQTT_PORT=1883
 
 # Create user in Mosquitto options
@@ -521,8 +513,8 @@ bashio::log.info "📋 Phase 1.5: Validating MQTT Integration"
 if ! check_mqtt_integration; then
   # Send persistent notification to Home Assistant UI
   send_notification \
-    "⚠️ LibreCoach: MQTT Integration Required" \
-    "**LibreCoach installation is paused!**
+    "⚠️ RV Link: MQTT Integration Required" \
+    "**RV Link installation is paused!**
 
 ✅ Mosquitto broker is installed and running
 ⚠️ But MQTT integration needs to be configured
@@ -533,12 +525,12 @@ if ! check_mqtt_integration; then
 2. Look for **MQTT** in the 'Discovered' section
 3. Click **ADD** on the MQTT card
 4. Click **SUBMIT** to use Mosquitto broker
-5. Return to **Settings → Add-ons → LibreCoach** and click **START**
+5. Return to **Settings → Add-ons → RV Link** and click **START**
 
 **Why?** The MQTT integration listens for device discovery messages and creates entities automatically.
 
-_See LibreCoach addon logs for more details_" \
-    "librecoach_mqtt_setup"
+_See RV Link addon logs for more details_" \
+    "rvlink_mqtt_setup"
 
   # Also log to addon logs for those who check
   bashio::log.error ""
@@ -555,11 +547,11 @@ _See LibreCoach addon logs for more details_" \
   bashio::log.error "   2. Look for MQTT in the 'Discovered' section"
   bashio::log.error "   3. Click ADD on the MQTT card"
   bashio::log.error "   4. Click SUBMIT to use Mosquitto broker"
-  bashio::log.error "   5. Return to Settings → Add-ons → LibreCoach and click START"
+  bashio::log.error "   5. Return to Settings → Add-ons → RV Link and click START"
   bashio::log.error ""
   bashio::log.error "   💡 Check the notification in Home Assistant UI (🔔 bell icon)"
   bashio::log.error ""
-  bashio::log.fatal "   ⏸️  Installation paused. Complete MQTT setup and start LibreCoach."
+  bashio::log.fatal "   ⏸️  Installation paused. Complete MQTT setup and start RV Link."
   bashio::log.fatal ""
   exit 1
 fi
@@ -568,7 +560,7 @@ fi
 curl -s -X POST \
   -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"notification_id": "librecoach_mqtt_setup"}' \
+  -d '{"notification_id": "rvlink_mqtt_setup"}' \
   "http://supervisor/core/api/services/persistent_notification/dismiss" >/dev/null 2>&1
 
 bashio::log.info "   ✅ MQTT integration is configured"
@@ -584,7 +576,7 @@ if ! is_installed "$SLUG_CAN_BRIDGE"; then
     bashio::log.info "   🔽 Installing CAN-MQTT Bridge addon..."
     if ! install_addon "$SLUG_CAN_BRIDGE"; then
         bashio::log.fatal "❌ Failed to install CAN-MQTT Bridge addon"
-        bashio::log.fatal "   This addon is essential for LibreCoach to function."
+        bashio::log.fatal "   This addon is essential for RV Link to function."
         exit 1
     fi
 else
@@ -694,23 +686,23 @@ else
 fi
 
 # If Node-RED was already installed, check if we need takeover permission
-# Skip takeover check if already managed by LibreCoach
+# Skip takeover check if already managed by RV Link
 if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
   if is_nodered_managed; then
     MANAGED_VERSION=$(get_managed_version)
-    bashio::log.info "   ✅ Node-RED already managed by LibreCoach (version $MANAGED_VERSION)"
+    bashio::log.info "   ✅ Node-RED already managed by RV Link (version $MANAGED_VERSION)"
   else
-    # Node-RED exists but not managed by LibreCoach - need permission
+    # Node-RED exists but not managed by RV Link - need permission
     if [ "$CONFIRM_TAKEOVER" != "true" ]; then
        bashio::log.warning ""
        bashio::log.warning "   ⚠️  EXISTING INSTALLATION DETECTED"
-       bashio::log.warning "   LibreCoach needs to configure Node-RED to run the LibreCoach project."
+       bashio::log.warning "   RV Link needs to configure Node-RED to run the RV Link project."
        bashio::log.warning "   This will REPLACE your active Node-RED flows."
        bashio::log.warning "   "
        bashio::log.warning "   To proceed, you must explicitly grant permission:"
-       bashio::log.warning "   1. Go to the LibreCoach add-on configuration."
+       bashio::log.warning "   1. Go to the RV Link add-on configuration."
        bashio::log.warning "   2. Enable 'confirm_nodered_takeover'."
-       bashio::log.warning "   3. Restart LibreCoach."
+       bashio::log.warning "   3. Restart RV Link."
        bashio::log.warning ""
        bashio::log.fatal "   ❌ Installation aborted to protect existing flows."
        exit 1
@@ -734,7 +726,7 @@ SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
 #    - It finds the 'mqtt-broker' node.
 #    - It overwrites the broker and credentials to use environment variables.
 #    - The output is written directly to the default /config/flows.json location.
-SETTINGS_INIT_CMD="mkdir -p /config/projects/librecoach-node-red/rvc; cp -r /share/.librecoach/rvc/. /config/projects/librecoach-node-red/rvc/; jq '(.[] | select(.type == \"mqtt-broker\")) |= . + {\"broker\": \"mqtt://homeassistant:1883\", \"credentials\": {\"user\": \"${MQTT_USER}\", \"password\": \"${MQTT_PASS}\"}}' /share/.librecoach/flows.json > /config/flows.json"
+SETTINGS_INIT_CMD="mkdir -p /config/projects/rv-link-node-red/rvc; cp -r /share/.rv-link/rvc/. /config/projects/rv-link-node-red/rvc/; jq '(.[] | select(.type == \"mqtt-broker\")) |= . + {\"broker\": \"mqtt://homeassistant:1883\", \"credentials\": {\"user\": \"${MQTT_USER}\", \"password\": \"${MQTT_PASS}\"}}' /share/.rv-link/flows.json > /config/flows.json"
 
 NEEDS_RESTART=false
 
@@ -824,7 +816,7 @@ fi
 # Ensure Node-RED starts on boot
 set_boot_auto "$SLUG_NODERED" || bashio::log.warning "   ⚠️  Could not set Node-RED to auto-start"
 
-# Mark/update Node-RED as managed by Libre Coach (updates version on upgrades)
+# Mark/update Node-RED as managed by RV Link (updates version on upgrades)
 mark_nodered_managed
 
 # ========================
@@ -832,7 +824,7 @@ mark_nodered_managed
 # ========================
 echo ""
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
-bashio::log.info "║          Libre Coach Installation Summary                  ║"
+bashio::log.info "║          RV Link Installation Summary                      ║"
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
 bashio::log.info ""
 bashio::log.info "  MQTT Integration ................ ✅ Configured"
@@ -842,7 +834,7 @@ if [ "$BRIDGE_STATUS" = "running" ]; then
 elif [ "$BRIDGE_STATUS" = "stopped_after_start" ]; then
     bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED"
     bashio::log.warning "    └─ Bridge stopped after startup (MQTT auth failure likely)"
-    bashio::log.warning "    └─ Check MQTT credentials in Libre Coach configuration"
+    bashio::log.warning "    └─ Check MQTT credentials in RV Link configuration"
     bashio::log.warning "    └─ View full error: Settings → Add-ons → CAN-MQTT Bridge → Logs"
 elif [ "$BRIDGE_STATUS" = "failed_to_start" ]; then
     bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED TO START"
@@ -860,8 +852,8 @@ fi
 bashio::log.info ""
 bashio::log.info "╚════════════════════════════════════════════════════════════╝"
 bashio::log.info ""
-bashio::log.info "🚐 See the Overview Dashboard for new Libre Coach entities"
-bashio::log.info "🚐 Visit https://LibreCoach.com for more information"
+bashio::log.info "🚐 See the Overview Dashboard for new RV Link entities"
+bashio::log.info "🚐 Visit https://rvlink.app for more information"
 bashio::log.info ""
-bashio::log.info "   ✅ Libre Coach setup complete."
-bashio::log.info "   You only need to restart this addon when updating Libre Coach."
+bashio::log.info "   ✅ RV Link setup complete."
+bashio::log.info "   You only need to restart this addon when updating RV Link."
