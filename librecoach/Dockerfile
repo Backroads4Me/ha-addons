@@ -20,9 +20,9 @@ RUN apk add --no-cache \
 
 # Bundle the Node-RED Project
 # Always pulls latest from main branch
-RUN git clone --depth 1 https://github.com/Backroads4Me/libre-coach-node-red /opt/libre-coach-project && \
-    rm -rf /opt/libre-coach-project/.git && \
-    rm -f /opt/libre-coach-project/.gitignore /opt/libre-coach-project/.gitattributes /opt/libre-coach-project/flows_cred.json
+RUN git clone --depth 1 https://github.com/Backroads4Me/libre-coach-node-red /opt/librecoach-project && \
+    rm -rf /opt/librecoach-project/.git && \
+    rm -f /opt/librecoach-project/.gitignore /opt/librecoach-project/.gitattributes /opt/librecoach-project/flows_cred.json
 
 # Copy run script and make it executable
 COPY run.sh /run.sh

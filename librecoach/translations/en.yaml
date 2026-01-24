@@ -1,7 +1,7 @@
 configuration:
   confirm_nodered_takeover:
     name: "Allow Node-RED Overwrite"
-    description: "DANGER: Enabling this option permits Libre Coach to completely overwrite your existing Node-RED flows. Only enable this if you have backed up your existing flows."
+    description: "DANGER: Enabling this option permits LibreCoach to completely overwrite your existing Node-RED flows. Only enable this if you have backed up your existing flows."
   mqtt_user:
     name: "MQTT Username"
     description: "The username used by the bridge to authenticate with the MQTT broker."

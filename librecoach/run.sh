@@ -2,7 +2,7 @@
 set -e
 
 bashio::log.info "================================================"
-bashio::log.info "🚐 Libre Coach - System Starting"
+bashio::log.info "🚐 LibreCoach - System Starting"
 bashio::log.info "================================================"
 
 # ========================
@@ -10,8 +10,8 @@ bashio::log.info "================================================"
 # ========================
 SUPERVISOR="http://supervisor"
 AUTH_HEADER="Authorization: Bearer $SUPERVISOR_TOKEN"
-PROJECT_PATH="/share/.libre-coach"
-BUNDLED_PROJECT="/opt/libre-coach-project"
+PROJECT_PATH="/share/.librecoach"
+BUNDLED_PROJECT="/opt/librecoach-project"
 
 # Add-on Slugs
 SLUG_MOSQUITTO="core_mosquitto"
@@ -19,7 +19,7 @@ SLUG_NODERED="a0d7b954_nodered"
 SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
 
 
-# State file to track Libre Coach management
+# State file to track LibreCoach management
 STATE_FILE="/data/.librecoach-state.json"
 ADDON_VERSION=$(bashio::addon.version)
 
@@ -173,13 +173,13 @@ install_addon() {
     if [[ "$slug" == "$SLUG_NODERED" ]] && [[ "$error_msg" == *"already installed"* ]]; then
       bashio::log.error ""
       bashio::log.error "   Node-RED is already installed on your system."
-      bashio::log.error "   To use it with Libre Coach, you must grant permission:"
+      bashio::log.error "   To use it with LibreCoach, you must grant permission:"
       bashio::log.error ""
-      bashio::log.error "   1. Go to the Libre Coach add-on Configuration tab"
+      bashio::log.error "   1. Go to the LibreCoach add-on Configuration tab"
       bashio::log.error "   2. Enable the 'confirm_nodered_takeover' option"
-      bashio::log.error "   3. Save and restart the Libre Coach add-on"
+      bashio::log.error "   3. Save and restart the LibreCoach add-on"
       bashio::log.error ""
-      bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with Libre Coach flows."
+      bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with LibreCoach flows."
     fi
 
     return 1
@@ -396,7 +396,7 @@ mark_nodered_managed() {
   "last_update": "$(date -Iseconds)"
 }
 EOF
-  bashio::log.info "   ✅ Marked Node-RED as managed by Libre Coach"
+  bashio::log.info "   ✅ Marked Node-RED as managed by LibreCoach"
 }
 
 get_managed_version() {
@@ -513,8 +513,8 @@ bashio::log.info "📋 Phase 1.5: Validating MQTT Integration"
 if ! check_mqtt_integration; then
   # Send persistent notification to Home Assistant UI
   send_notification \
-    "⚠️ Libre Coach: MQTT Integration Required" \
-    "**Libre Coach installation is paused!**
+    "⚠️ LibreCoach: MQTT Integration Required" \
+    "**LibreCoach installation is paused!**
 
 ✅ Mosquitto broker is installed and running
 ⚠️ But MQTT integration needs to be configured
@@ -525,11 +525,11 @@ if ! check_mqtt_integration; then
 2. Look for **MQTT** in the 'Discovered' section
 3. Click **ADD** on the MQTT card
 4. Click **SUBMIT** to use Mosquitto broker
-5. Return to **Settings → Add-ons → Libre Coach** and click **START**
+5. Return to **Settings → Add-ons → LibreCoach** and click **START**
 
 **Why?** The MQTT integration listens for device discovery messages and creates entities automatically.
 
-_See Libre Coach addon logs for more details_" \
+_See LibreCoach addon logs for more details_" \
     "librecoach_mqtt_setup"
 
   # Also log to addon logs for those who check
@@ -547,11 +547,11 @@ _See Libre Coach addon logs for more details_" \
   bashio::log.error "   2. Look for MQTT in the 'Discovered' section"
   bashio::log.error "   3. Click ADD on the MQTT card"
   bashio::log.error "   4. Click SUBMIT to use Mosquitto broker"
-  bashio::log.error "   5. Return to Settings → Add-ons → Libre Coach and click START"
+  bashio::log.error "   5. Return to Settings → Add-ons → LibreCoach and click START"
   bashio::log.error ""
   bashio::log.error "   💡 Check the notification in Home Assistant UI (🔔 bell icon)"
   bashio::log.error ""
-  bashio::log.fatal "   ⏸️  Installation paused. Complete MQTT setup and start Libre Coach."
+  bashio::log.fatal "   ⏸️  Installation paused. Complete MQTT setup and start LibreCoach."
   bashio::log.fatal ""
   exit 1
 fi
@@ -576,7 +576,7 @@ if ! is_installed "$SLUG_CAN_BRIDGE"; then
     bashio::log.info "   🔽 Installing CAN-MQTT Bridge addon..."
     if ! install_addon "$SLUG_CAN_BRIDGE"; then
         bashio::log.fatal "❌ Failed to install CAN-MQTT Bridge addon"
-        bashio::log.fatal "   This addon is essential for Libre Coach to function."
+        bashio::log.fatal "   This addon is essential for LibreCoach to function."
         exit 1
     fi
 else
@@ -686,23 +686,23 @@ else
 fi
 
 # If Node-RED was already installed, check if we need takeover permission
-# Skip takeover check if already managed by Libre Coach
+# Skip takeover check if already managed by LibreCoach
 if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
   if is_nodered_managed; then
     MANAGED_VERSION=$(get_managed_version)
-    bashio::log.info "   ✅ Node-RED already managed by Libre Coach (version $MANAGED_VERSION)"
+    bashio::log.info "   ✅ Node-RED already managed by LibreCoach (version $MANAGED_VERSION)"
   else
-    # Node-RED exists but not managed by Libre Coach - need permission
+    # Node-RED exists but not managed by LibreCoach - need permission
     if [ "$CONFIRM_TAKEOVER" != "true" ]; then
        bashio::log.warning ""
        bashio::log.warning "   ⚠️  EXISTING INSTALLATION DETECTED"
-       bashio::log.warning "   Libre Coach needs to configure Node-RED to run the Libre Coach project."
+       bashio::log.warning "   LibreCoach needs to configure Node-RED to run the LibreCoach project."
        bashio::log.warning "   This will REPLACE your active Node-RED flows."
        bashio::log.warning "   "
        bashio::log.warning "   To proceed, you must explicitly grant permission:"
-       bashio::log.warning "   1. Go to the Libre Coach add-on configuration."
+       bashio::log.warning "   1. Go to the LibreCoach add-on configuration."
        bashio::log.warning "   2. Enable 'confirm_nodered_takeover'."
-       bashio::log.warning "   3. Restart Libre Coach."
+       bashio::log.warning "   3. Restart LibreCoach."
        bashio::log.warning ""
        bashio::log.fatal "   ❌ Installation aborted to protect existing flows."
        exit 1
@@ -726,7 +726,7 @@ SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
 #    - It finds the 'mqtt-broker' node.
 #    - It overwrites the broker and credentials to use environment variables.
 #    - The output is written directly to the default /config/flows.json location.
-SETTINGS_INIT_CMD="mkdir -p /config/projects/libre-coach-node-red/rvc; cp -r /share/.libre-coach/rvc/. /config/projects/libre-coach-node-red/rvc/; jq '(.[] | select(.type == \"mqtt-broker\")) |= . + {\"broker\": \"mqtt://homeassistant:1883\", \"credentials\": {\"user\": \"${MQTT_USER}\", \"password\": \"${MQTT_PASS}\"}}' /share/.libre-coach/flows.json > /config/flows.json"
+SETTINGS_INIT_CMD="mkdir -p /config/projects/librecoach-node-red/rvc; cp -r /share/.librecoach/rvc/. /config/projects/librecoach-node-red/rvc/; jq '(.[] | select(.type == \"mqtt-broker\")) |= . + {\"broker\": \"mqtt://homeassistant:1883\", \"credentials\": {\"user\": \"${MQTT_USER}\", \"password\": \"${MQTT_PASS}\"}}' /share/.librecoach/flows.json > /config/flows.json"
 
 NEEDS_RESTART=false
 

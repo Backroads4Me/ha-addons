@@ -1,8 +1,8 @@
-# Home Assistant add-on: Libre Coach
-name: "Libre Coach"
+# Home Assistant add-on: LibreCoach
+name: "LibreCoach"
 version: "0.9.1"
-slug: "libre-coach"
-description: "Libre Coach: For controlling and monitoring RV systems"
+slug: "librecoach"
+description: "LibreCoach: For controlling and monitoring RV systems"
 url: "https://LibreCoach.com"
 maintainer: "Ted Lanham <Backroads4Me@gmail.com>"
 arch:
@@ -37,4 +37,4 @@ schema:
   can_interface: str
   can_bitrate: list(125000|250000|500000|1000000)
   debug_logging: bool
-image: ghcr.io/backroads4me/{arch}-libre-coach
+image: ghcr.io/backroads4me/{arch}-librecoach
