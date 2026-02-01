@@ -14,11 +14,8 @@ mkdir -p "$PROJECT_DIR/rvc"
 # Copy RVC decoder data
 cp -r "$SOURCE_DIR/rvc/." "$PROJECT_DIR/rvc/"
 
-# Copy package.json for Node-RED dependencies
-cp "$SOURCE_DIR/package.json" "$PROJECT_DIR/package.json"
-
-# Copy flows.json to project directory
-cp "$SOURCE_DIR/flows.json" "$PROJECT_DIR/flows.json"
+# Copy package.json to config directory for Node-RED dependencies
+cp "$SOURCE_DIR/package.json" /config/package.json
 
 # Configure flows.json with MQTT broker credentials
 # Updates the mqtt-broker node with connection details from environment

@@ -1,3 +1,9 @@
+## [0.9.14] - 2026-02-01
+
+### Fixed
+
+- Converted Node-RED init script to a file
+
 ## [0.9.8] - 2026-01-24
 
 ### Fixed
