@@ -741,14 +741,9 @@ NR_OPTIONS=$(echo "$NR_INFO" | jq '.data.options // {}')
 log_debug "NR_OPTIONS extracted: $NR_OPTIONS"
 SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
 
-# Define the command that will run inside the Node-RED container on startup.
-# 1. Create project directories needed by the flow.
-# 2. Copy the 'rvc' directory into the project space.
-# 3. Use jq to modify the source flows.json:
-#    - It finds the 'mqtt-broker' node.
-#    - It overwrites the broker and credentials to use environment variables.
-#    - The output is written directly to the default /config/flows.json location.
-SETTINGS_INIT_CMD="mkdir -p /config/projects/librecoach-node-red/rvc; cp -r /share/.librecoach/rvc/. /config/projects/librecoach-node-red/rvc/; jq '(.[] | select(.type == \"mqtt-broker\")) |= . + {\"broker\": \"mqtt://homeassistant:1883\", \"credentials\": {\"user\": \"${MQTT_USER}\", \"password\": \"${MQTT_PASS}\"}}' /share/.librecoach/flows.json > /config/flows.json"
+# Init command runs the script deployed to /share/.librecoach/
+# The script uses MQTT_* environment variables set via env_vars
+SETTINGS_INIT_CMD="bash /share/.librecoach/init-nodered.sh"
 
 NEEDS_RESTART=false
 
