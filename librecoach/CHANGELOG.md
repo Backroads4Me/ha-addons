@@ -1,3 +1,10 @@
+## [0.9.15] - 2026-02-02
+
+### Changed
+
+- Simplified MQTT credential handling using Node-RED environment variable substitution
+- Added custom settings.js with fixed credentialSecret for consistent credential encryption
+
 ## [0.9.14] - 2026-02-01
 
 ### Fixed

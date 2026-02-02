@@ -24,8 +24,9 @@ RUN git clone --depth 1 https://github.com/Backroads4Me/librecoach-node-red /opt
     rm -rf /opt/librecoach-project/.git && \
     rm -f /opt/librecoach-project/.gitignore /opt/librecoach-project/.gitattributes /opt/librecoach-project/flows_cred.json
 
-# Copy init script to bundled project (gets deployed to /share/.librecoach/)
+# Copy init script and settings to bundled project (gets deployed to /share/.librecoach/)
 COPY init-nodered.sh /opt/librecoach-project/init-nodered.sh
+COPY settings.js /opt/librecoach-project/settings.js
 
 # Copy run script and make it executable
 COPY run.sh /run.sh
