@@ -737,35 +737,33 @@ NR_INFO=$(api_call GET "/addons/$SLUG_NODERED/info")
 log_debug "NR_INFO response: $NR_INFO"
 NR_OPTIONS=$(echo "$NR_INFO" | jq '.data.options // {}')
 log_debug "NR_OPTIONS extracted: $NR_OPTIONS"
-SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
+EXISTING_SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
 
 # Init command runs the script deployed to /share/.librecoach/
-# The script uses MQTT_* environment variables set via env_vars
+# The script copies flows.json and flows_cred.json (credentials encrypted with "librecoach")
 SETTINGS_INIT_CMD="bash /share/.librecoach/init-nodered.sh"
+
+# LibreCoach requires credential_secret to be "librecoach" for flows_cred.json decryption
+LIBRECOACH_SECRET="librecoach"
 
 NEEDS_RESTART=false
 
-# Define MQTT Env Vars for Node-RED
-MQTT_ENV_VARS=$(jq -n \
-  --arg user "$MQTT_USER" \
-  --arg pass "$MQTT_PASS" \
-  '[
-  {"name": "MQTT_USER", "value": $user},
-  {"name": "MQTT_PASS", "value": $pass},
-  {"name": "MQTT_HOST", "value": "homeassistant"},
-  {"name": "MQTT_PORT", "value": "1883"}
-]')
+# Backup existing credential_secret if it exists and differs from ours
+if [ -n "$EXISTING_SECRET" ] && [ "$EXISTING_SECRET" != "$LIBRECOACH_SECRET" ]; then
+  BACKUP_FILE="$PROJECT_PATH/.backup_credential_secret"
+  bashio::log.info "   Backing up existing Node-RED credential_secret to $BACKUP_FILE"
+  echo "$EXISTING_SECRET" > "$BACKUP_FILE"
+  chmod 600 "$BACKUP_FILE"
+fi
 
-if [ -z "$SECRET" ]; then
-  bashio::log.info "   No credential_secret found. Generating one..."
-  NEW_SECRET=$(openssl rand -hex 16)
+if [ -z "$EXISTING_SECRET" ] || [ "$EXISTING_SECRET" != "$LIBRECOACH_SECRET" ]; then
+  bashio::log.info "   Setting credential_secret to 'librecoach' for flows_cred.json compatibility..."
   NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
-    --arg secret "$NEW_SECRET" \
+    --arg secret "$LIBRECOACH_SECRET" \
     --arg initcmd "$SETTINGS_INIT_CMD" \
     --arg user "$MQTT_USER" \
     --arg pass "$MQTT_PASS" \
-    --argjson env_vars "$MQTT_ENV_VARS" \
-    '. + {"credential_secret": $secret, "ssl": false, "init_commands": [$initcmd], "env_vars": $env_vars, "users": [{"username": $user, "password": $pass, "permissions": "*"}]}')
+    '. + {"credential_secret": $secret, "ssl": false, "init_commands": [$initcmd], "users": [{"username": $user, "password": $pass, "permissions": "*"}]}')
   bashio::log.info "   > Node-RED user being configured: $MQTT_USER"
   log_debug "Node-RED options: $(echo "$NEW_OPTIONS" | jq -c '.users')"
   set_options "$SLUG_NODERED" "$NEW_OPTIONS" || exit 1
@@ -773,17 +771,16 @@ if [ -z "$SECRET" ]; then
 else
   CURRENT_INIT_CMD=$(echo "$NR_OPTIONS" | jq -r '.init_commands[0] // empty')
   CURRENT_USER=$(echo "$NR_OPTIONS" | jq -r --arg user "$MQTT_USER" '(.users // [])[] | select(.username == $user) | .username')
-  
-  # Check if config needs updating (init command changed, user missing, or env vars different)
-  if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ -z "$CURRENT_USER" ] || [ "$(echo "$NR_OPTIONS" | jq '.env_vars')" != "$MQTT_ENV_VARS" ]; then
-    bashio::log.info "   > Updating Node-RED configuration (init commands / users / env_vars)..."
+
+  # Check if config needs updating (init command changed or user missing)
+  if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ -z "$CURRENT_USER" ]; then
+    bashio::log.info "   > Updating Node-RED configuration (init commands / users)..."
     NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
       --arg initcmd "$SETTINGS_INIT_CMD" \
       --arg user "$MQTT_USER" \
       --arg pass "$MQTT_PASS" \
-      --argjson env_vars "$MQTT_ENV_VARS" \
-      ' 
-      . + {"init_commands": [$initcmd], "env_vars": $env_vars} |
+      '
+      . + {"init_commands": [$initcmd]} |
       .users = (.users // []) |
       .users |= (map(select(.username != $user)) + [{"username": $user, "password": $pass, "permissions": "*"}])
     ')

@@ -1,3 +1,11 @@
+## [0.9.17] - 2026-02-02
+
+### Changed
+
+- Switched to bundled flows_cred.json for MQTT credentials instead of runtime injection
+- Fixed credential_secret to "librecoach" for consistent flows_cred.json decryption
+- Backup existing Node-RED credential_secret to share drive when taking over
+
 ## [0.9.16] - 2026-02-02
 
 ### Changed
