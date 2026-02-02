@@ -1,3 +1,13 @@
+## [0.9.16] - 2026-02-02
+
+### Changed
+
+- Simplified MQTT credential injection using jq in init script
+
+### Fixed
+
+- Fixed duplicate "MQTT integration is configured" log message
+
 ## [0.9.15] - 2026-02-02
 
 ### Changed

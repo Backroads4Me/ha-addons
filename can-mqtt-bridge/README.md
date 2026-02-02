@@ -2,7 +2,6 @@
 
 Bidirectional bridge between CAN bus interfaces and MQTT for Home Assistant.
 
-
 ## What It Does
 
 This addon initializes CAN interfaces on your Home Assistant system and bridges CAN bus traffic to MQTT topics, enabling:
@@ -64,9 +63,10 @@ Contributions welcome! Please:
 - Follow existing code style
 
 ---
+
 ## Support the Project
 
 These addons are free and open source.  
 If they’ve helped you or saved you time, consider supporting continued development:
 
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/backroads4me)

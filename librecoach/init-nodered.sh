@@ -17,10 +17,11 @@ cp -r "$SOURCE_DIR/rvc/." "$PROJECT_DIR/rvc/"
 # Copy package.json to config directory for Node-RED dependencies
 cp "$SOURCE_DIR/package.json" /config/package.json
 
-# Copy flows.json (already configured with ${MQTT_USER} and ${MQTT_PASS} env var references)
-cp "$SOURCE_DIR/flows.json" /config/flows.json
-
-# Copy settings.js (sets credentialSecret to "librecoach" for consistent credential encryption)
-cp "$SOURCE_DIR/settings.js" /config/settings.js
+# Inject MQTT credentials into flows.json and copy to Node-RED config
+jq --arg user "$MQTT_USER" --arg pass "$MQTT_PASS" \
+  '(.[] | select(.type == "mqtt-broker")) |= . + {
+    "broker": "mqtt://homeassistant:1883",
+    "credentials": {"user": $user, "password": $pass}
+  }' "$SOURCE_DIR/flows.json" > /config/flows.json
 
 echo "LibreCoach Node-RED initialization complete"
