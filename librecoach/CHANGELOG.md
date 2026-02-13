@@ -1,3 +1,10 @@
+## [1.0.0] - 2026-02-13
+
+### Added
+
+- Light dimming capability
+- Victron GX device support
+
 ## [0.9.17] - 2026-02-02
 
 ### Changed
