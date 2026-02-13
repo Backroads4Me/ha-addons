@@ -1,3 +1,9 @@
+## [1.0.1] - 2026-02-13
+
+### Added
+
+- Dimmable control for lights
+
 ## [1.0.0] - 2026-02-13
 
 ### Added
