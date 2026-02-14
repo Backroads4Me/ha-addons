@@ -52,10 +52,24 @@ For full configuration options, troubleshooting, and guides, please visit:
 
 ---
 
+## License
+
+This add-on is licensed under the **GNU General Public License v3.0 (GPL-3.0-only)**.
+Contributions are accepted under the CLA, which grants the project owner the right to offer
+alternative licensing terms (including commercial licensing) outside this repository.
+
+---
+
+## Contributing
+
+Contributions to the LibreCoach add-on require signing the CLA. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+---
+
 ## Support LibreCoach
 
 LibreCoach is free and open source.
-If it’s useful to you, you can support its development in either of these ways:
+If it's useful to you, you can support its development in either of these ways:
 
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
 [![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)

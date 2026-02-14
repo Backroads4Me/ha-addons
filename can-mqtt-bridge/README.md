@@ -62,6 +62,8 @@ Contributions welcome! Please:
 - Add entries to CHANGELOG.md
 - Follow existing code style
 
+Note: This repository uses a CLA for the LibreCoach add-on only. The CLA check is applied at the repository level by CLA Assistant, so you may be prompted to sign even when contributing here. See `../librecoach/CONTRIBUTING.md` for details.
+
 ---
 
 ## Support the Project

@@ -7,6 +7,10 @@ This repository contains a collection of my Home Assistant add-ons.
 - **[LibreCoach](./librecoach/README.md)**: For controlling and monitoring RV systems.
 - **[CAN to MQTT Bridge](./can-mqtt-bridge/README.md)**: Initializes CAN interfaces and provides a bidirectional bridge to MQTT.
 
+## Contributing
+
+This repository uses a CLA for the LibreCoach add-on only. The CLA check is applied at the repository level by CLA Assistant, so you may be prompted to sign even when contributing to other add-ons. See `librecoach/CONTRIBUTING.md` for details.
+
 ## Installation
 
 To add this repository to your Home Assistant instance, click the button below:

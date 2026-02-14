@@ -24,4 +24,9 @@ cp "$SOURCE_DIR/package.json" /config/package.json
 cp "$SOURCE_DIR/flows.json" /config/flows.json
 cp "$SOURCE_DIR/flows_cred.json" /config/flows_cred.json
 
+# Keep GPL license with the installed project
+if [ -f "$SOURCE_DIR/LICENSE" ]; then
+  cp "$SOURCE_DIR/LICENSE" "$PROJECT_DIR/LICENSE"
+fi
+
 echo "LibreCoach Node-RED initialization complete"

@@ -17,6 +17,10 @@ This is the "Orchestrator." It is a utility that ensures the System is installed
 
 > **Normal Behavior:** When you start this add-on, it will perform its checks and then turn itself off. **This does not mean your RV control has stopped.** It simply means the Orchestrator has finished its job.
 
+## Updating LibreCoach
+
+After installing an update, **start the LibreCoach add-on once** to apply the changes. The add-on will run the orchestrator and stop on its own when finished.
+
 ## Configuration
 
 ### Main Settings

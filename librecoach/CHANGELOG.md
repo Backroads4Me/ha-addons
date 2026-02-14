@@ -1,3 +1,9 @@
+## [1.0.2] - 2026-02-14
+
+### Added
+
+- Option to disable Victron integration
+
 ## [1.0.1] - 2026-02-13
 
 ### Added

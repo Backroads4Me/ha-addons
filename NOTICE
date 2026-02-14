@@ -1,0 +1,7 @@
+NOTICE
+
+This repository is multi-licensed.
+
+- `librecoach/` is GPL-3.0-only (see `librecoach/LICENSE`). It bundles the LibreCoach Node-RED project from `https://github.com/Backroads4Me/librecoach-node-red`, which is GPL-3.0-only.
+- `can-mqtt-bridge/` is MIT (see `can-mqtt-bridge/LICENSE`).
+- All other root-level files are licensed under the MIT License in `LICENSE`, unless stated otherwise.
