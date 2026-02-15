@@ -1,4 +1,6 @@
 #!/usr/bin/with-contenv bashio
+
+run_orchestrator() {
 set -e
 
 bashio::log.info "================================================"
@@ -177,8 +179,8 @@ install_addon() {
       bashio::log.error "   To use it with LibreCoach, you must grant permission:"
       bashio::log.error ""
       bashio::log.error "   1. Go to the LibreCoach add-on Configuration tab"
-      bashio::log.error "   2. Enable the 'confirm_nodered_takeover' option"
-      bashio::log.error "   3. Save and restart the LibreCoach add-on"
+      bashio::log.error "   2. Enable the 'Allow Node-RED Overwrite' option"
+      bashio::log.error "   3. Scroll down and click 'Save'"
       bashio::log.error ""
       bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with LibreCoach flows."
     fi
@@ -424,6 +426,9 @@ get_managed_version() {
   jq -r '.version // ""' "$STATE_FILE"
 }
 
+# Ensure this addon starts on boot (upgrades from older versions may have boot: manual)
+api_call POST "/addons/self/options" '{"boot":"auto","watchdog":true}' > /dev/null
+
 # ========================
 # Phase 0: Deployment
 # ========================
@@ -540,7 +545,7 @@ if ! check_mqtt_integration; then
 2. Look for **MQTT** in the 'Discovered' section
 3. Click **ADD** on the MQTT card
 4. Click **SUBMIT** to use Mosquitto broker
-5. Return to **Settings → Add-ons → LibreCoach** and click **START**
+5. Return to **Settings → Add-ons → LibreCoach** and click **RESTART**
 
 **Why?** The MQTT integration listens for device discovery messages and creates entities automatically.
 
@@ -562,7 +567,7 @@ _See LibreCoach addon logs for more details_" \
   bashio::log.error "   2. Look for MQTT in the 'Discovered' section"
   bashio::log.error "   3. Click ADD on the MQTT card"
   bashio::log.error "   4. Click SUBMIT to use Mosquitto broker"
-  bashio::log.error "   5. Return to Settings → Add-ons → LibreCoach and click START"
+  bashio::log.error "   5. Return to Settings → Add-ons → LibreCoach and click RESTART"
   bashio::log.error ""
   bashio::log.error "   Check the notification in Home Assistant UI (🔔 bell icon)"
   bashio::log.error ""
@@ -874,4 +879,16 @@ bashio::log.info "🚐 See the Overview Dashboard for new LibreCoach entities"
 bashio::log.info "🚐 Visit https://LibreCoach.com for more information"
 bashio::log.info ""
 bashio::log.info "   ✅ LibreCoach setup complete."
-bashio::log.info "   You only need to restart this addon when updating LibreCoach."
+
+} # end run_orchestrator
+
+# Run orchestrator, capture result
+if run_orchestrator; then
+    bashio::log.info "Orchestrator complete."
+else
+    bashio::log.warning "Orchestrator encountered errors. Check logs above."
+    bashio::log.warning "Fix the issue, then restart the addon from Settings → Add-ons → LibreCoach."
+fi
+
+# Always stay alive so HAOS can restart us on updates
+sleep infinity

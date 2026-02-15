@@ -1,19 +1,16 @@
 # Home Assistant add-on: LibreCoach
 name: "LibreCoach"
-version: "1.0.2"
+version: "1.0.3"
 slug: "librecoach"
 description: "LibreCoach: For controlling and monitoring RV systems"
 url: "https://librecoach.com"
 maintainer: "Ted Lanham <Backroads4Me@gmail.com>"
-post_update: |
-  Update complete. Start the LibreCoach add-on to apply the update.
-  It will run the orchestrator and stop on its own when finished.
 arch:
   - aarch64
   - amd64
   - armv7
 startup: services
-boot: manual
+boot: auto
 init: false
 hassio_api: true
 hassio_role: manager

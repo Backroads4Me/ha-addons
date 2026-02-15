@@ -1,3 +1,15 @@
+## [1.0.3] - 2026-02-15
+
+**⚠️ Action Required:** Start the addon once after this update. It will configure itself to auto-start — future updates will apply automatically.
+
+### Added
+
+- Export/Import Templates to share or backup labels for switches.
+
+### Changed
+
+- Addon stays running after orchestration for automatic restart on updates
+
 ## [1.0.2] - 2026-02-14
 
 ### Added
