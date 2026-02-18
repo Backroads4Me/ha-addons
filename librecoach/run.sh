@@ -18,25 +18,17 @@ BUNDLED_PROJECT="/opt/librecoach-project"
 # Add-on Slugs
 SLUG_MOSQUITTO="core_mosquitto"
 SLUG_NODERED="a0d7b954_nodered"
-SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
-
 
 # State file to track LibreCoach management
 STATE_FILE="/data/.librecoach-state.json"
 ADDON_VERSION=$(bashio::addon.version)
 
-# Track component status for summary
-BRIDGE_STATUS="not_started"
-
-# Bridge Config (to pass to CAN bridge addon)
-CAN_INTERFACE=$(bashio::config 'can_interface')
-CAN_BITRATE=$(bashio::config 'can_bitrate')
-MQTT_TOPIC_RAW=$(bashio::config 'mqtt_topic_raw')
-MQTT_TOPIC_SEND=$(bashio::config 'mqtt_topic_send')
-MQTT_TOPIC_STATUS=$(bashio::config 'mqtt_topic_status')
+# Config values used by orchestrator
 MQTT_USER=$(bashio::config 'mqtt_user')
 MQTT_PASS=$(bashio::config 'mqtt_pass')
 DEBUG_LOGGING=$(bashio::config 'debug_logging')
+VICTRON_ENABLED=$(bashio::config 'victron_enabled')
+BETA_ENABLED=$(bashio::config 'beta_enabled')
 
 # ======================== 
 # Orchestrator Helpers
@@ -64,29 +56,18 @@ api_call() {
   echo "$response"
 }
 
-get_addon_logs() {
-  local slug=$1
-  local lines=${2:-50}  # Default to last 50 lines
-  # Logs endpoint returns plain text, not JSON
-  api_call GET "/addons/$slug/logs" | tail -n "$lines"
-}
-
 check_mqtt_integration() {
   bashio::log.info "Checking for MQTT integration..."
 
-  # Call Home Assistant Core API to get list of loaded components
   local response
-  response=$(curl -s -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-    "http://supervisor/core/api/components" 2>/dev/null)
+  response=$(api_call GET "/core/api/components")
 
   if [ -z "$response" ]; then
     bashio::log.warning "   ⚠️  Unable to query Home Assistant Core API"
     return 1
   fi
 
-  # Check if 'mqtt' is in the components array
-  if echo "$response" | jq -r '.[] | select(. == "mqtt")' | grep -q "mqtt"; then
-    bashio::log.info "   MQTT integration is configured"
+  if echo "$response" | jq -e 'index("mqtt")' >/dev/null 2>&1; then
     return 0
   else
     return 1
@@ -98,23 +79,20 @@ send_notification() {
   local message=$2
   local notification_id=${3:-"librecoach_notification"}
 
-  # Call Home Assistant Core API to create a persistent notification
   local payload
   payload=$(jq -n \
     --arg title "$title" \
     --arg message "$message" \
     --arg id "$notification_id" \
-    '{
-      "title": $title,
-      "message": $message,
-      "notification_id": $id
-    }')
+    '{"title": $title, "message": $message, "notification_id": $id}')
 
-  curl -s -X POST \
-    -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "$payload" \
-    "http://supervisor/core/api/services/persistent_notification/create" >/dev/null 2>&1
+  api_call POST "/core/api/services/persistent_notification/create" "$payload" >/dev/null 2>&1
+}
+
+dismiss_notification() {
+  local notification_id=$1
+  api_call POST "/core/api/services/persistent_notification/dismiss" \
+    "{\"notification_id\": \"$notification_id\"}" >/dev/null 2>&1
 }
 
 is_installed() {
@@ -122,42 +100,32 @@ is_installed() {
   local response
   response=$(api_call GET "/addons/$slug/info")
 
-  # Guard against empty responses (e.g. Supervisor starting up)
   if [ -z "$response" ]; then
-    log_debug "API call returned empty response for $slug"
+    log_debug "Empty response for $slug"
     return 1
   fi
 
-  # Check if the API call was successful
   if ! echo "$response" | jq -e '.result == "ok"' >/dev/null 2>&1; then
-    log_debug "API call to check $slug installation failed"
+    log_debug "API call failed for $slug"
     return 1
   fi
 
-  # Check installation status
-  # If "installed" field exists, use it
-  local installed=$(echo "$response" | jq -r '.data.installed // empty')
-  if [ -n "$installed" ]; then
-    log_debug "$slug explicit installed status: $installed"
-    [ "$installed" == "true" ]
-    return $?
-  fi
-
-  # If no "installed" field, check if "version" field exists (indicates installed addon)
-  local version=$(echo "$response" | jq -r '.data.version // empty')
+  # Check version field — present means installed
+  local version
+  version=$(echo "$response" | jq -r '.data.version // empty')
   if [ -n "$version" ]; then
-    log_debug "$slug has version $version, therefore is installed"
+    log_debug "$slug is installed (version $version)"
     return 0
   fi
 
-  log_debug "$slug does not appear to be installed"
+  log_debug "$slug is not installed"
   return 1
 }
 
 is_running() {
   local slug=$1
   local state
-  state=$(echo "$(api_call GET "/addons/$slug/info")" | jq -r '.data.state // "unknown"')
+  state=$(api_call GET "/addons/$slug/info" | jq -r '.data.state // "unknown"')
   [ "$state" == "started" ]
 }
 
@@ -318,81 +286,6 @@ wait_for_nodered_api() {
   return 1
 }
 
-deploy_nodered_flows() {
-  bashio::log.info "   > Triggering Node-RED flow deployment..."
-  
-  local host="a0d7b954-nodered"
-  if [ -f /tmp/nodered_host ]; then
-    host=$(cat /tmp/nodered_host)
-  fi
-  local base_url="http://${host}:1880"
-  
-  # FETCH PHASE: Retry until Node-RED is fully ready
-  local flows=""
-  local retries=15
-  local success=false
-  local last_error=""
-
-  bashio::log.info "   > Waiting for Node-RED to be ready for deployment..."
-  while [ $retries -gt 0 ]; do
-    # Capture both response and HTTP code
-    local response
-    local http_code
-    response=$(curl -s -w "\n%{http_code}" --user "$MQTT_USER:$MQTT_PASS" -m 5 "${base_url}/flows" 2>&1)
-    http_code=$(echo "$response" | tail -n1)
-    flows=$(echo "$response" | sed '$d')
-
-    if [ "$http_code" = "200" ]; then
-      if echo "$flows" | jq -e '.' >/dev/null 2>&1; then
-        success=true
-        break
-      else
-        last_error="Invalid JSON response"
-      fi
-    else
-      last_error="HTTP $http_code"
-    fi
-
-    log_debug "Node-RED API not ready yet (${last_error}). Retrying in 3s... ($retries attempts left)"
-    sleep 3
-    ((retries--))
-  done
-
-  if [ "$success" = "false" ]; then
-    bashio::log.error "   ❌ Failed to communicate with Node-RED API after 45 seconds."
-    bashio::log.error "   Last error: ${last_error}"
-    bashio::log.error "   URL: ${base_url}/flows"
-    bashio::log.error "   User: ${MQTT_USER}"
-    return 1
-  fi
-
-  bashio::log.info "   Node-RED API ready. Deploying flows..."
-
-  # DEPLOY PHASE: Use "full" deployment for complete node restart
-  # Use stdin to avoid "Argument list too long" error with large flows
-  local deploy_response
-  deploy_response=$(echo "$flows" | curl -s -w "\n%{http_code}" --user "$MQTT_USER:$MQTT_PASS" -m 10 -X POST \
-    -H "Content-Type: application/json" \
-    -H "Node-RED-Deployment-Type: full" \
-    -d @- \
-    "${base_url}/flows" 2>&1)
-
-  local http_code=$(echo "$deploy_response" | tail -n1)
-  local response_body=$(echo "$deploy_response" | sed '$d')
-
-  if [ "$http_code" = "204" ] || [ "$http_code" = "200" ]; then
-    bashio::log.info "   Node-RED flows deployed successfully"
-    # Give MQTT nodes time to establish connections
-    sleep 5
-    return 0
-  else
-    bashio::log.warning "   ⚠️  Failed to deploy flows. HTTP $http_code"
-    log_debug "Deploy response: $response_body"
-    bashio::log.warning "   You may need to click Deploy manually."
-    return 1
-  fi
-}
-
 
 # ======================== 
 # State Management
@@ -446,6 +339,17 @@ fi
 
 # Deploy project files
 rsync -a --delete "$BUNDLED_PROJECT/" "$PROJECT_PATH/"
+
+# Select the appropriate init script based on configuration
+PREVENT_FLOW_UPDATES=$(bashio::config 'prevent_flow_updates')
+
+if [ "$PREVENT_FLOW_UPDATES" = "true" ]; then
+    bashio::log.info "   ✅ Flow updates PREVENTED. Using preserve-mode init script."
+    cp "$PROJECT_PATH/init-nodered-preserve.sh" "$PROJECT_PATH/init-nodered.sh"
+else
+    bashio::log.info "   Flow updates ALLOWED. Using standard init script."
+    cp "$PROJECT_PATH/init-nodered-overwrite.sh" "$PROJECT_PATH/init-nodered.sh"
+fi
 # Ensure permissions are open (Node-RED runs as non-root)
 chmod -R 755 "$PROJECT_PATH"
 bashio::log.info "   Project files deployed"
@@ -454,9 +358,8 @@ bashio::log.info "   Project files deployed"
 # ========================
 # Phase 1: Mosquitto MQTT Broker
 # ========================
-bashio::log.info "Phase 1: Installing Mosquitto MQTT Broker"
+bashio::log.info "Phase 1: Mosquitto MQTT Broker"
 
-# 1. Mosquitto
 if is_installed "$SLUG_MOSQUITTO"; then
   # Mosquitto is installed, ensure it's running
   bashio::log.info "   Mosquitto is already installed"
@@ -473,20 +376,14 @@ fi
 # Ensure Mosquitto starts on boot
 set_boot_auto "$SLUG_MOSQUITTO" || bashio::log.warning "   ⚠️  Could not set Mosquitto to auto-start"
 
-# Always ensure librecoach user exists in Mosquitto for consistency
-# Both Node-RED and CAN-MQTT Bridge will use these credentials
-bashio::log.info "   Ensuring 'librecoach' user exists in Mosquitto..."
-# MQTT_USER and MQTT_PASS are read from config at the top
+# Ensure librecoach MQTT user exists in Mosquitto
+bashio::log.info "   Ensuring '$MQTT_USER' user exists in Mosquitto..."
 MQTT_HOST="core-mosquitto"
 MQTT_PORT=1883
 
-# Create user in Mosquitto options
 MOSQUITTO_OPTIONS=$(api_call GET "/addons/$SLUG_MOSQUITTO/info" | jq '.data.options')
-
-# Remove existing user if present, then add it with current password
-# Handle case where logins might be null
 NEW_MOSQUITTO_OPTIONS=$(echo "$MOSQUITTO_OPTIONS" | jq --arg user "$MQTT_USER" --arg pass "$MQTT_PASS" '
-    .logins = (.logins // []) | 
+    .logins = (.logins // []) |
     .logins |= (map(select(.username != $user)) + [{"username": $user, "password": $pass}])
 ')
 
@@ -497,35 +394,18 @@ fi
 
 api_call POST "/addons/$SLUG_MOSQUITTO/options" "{\"options\": $NEW_MOSQUITTO_OPTIONS}" > /dev/null
 bashio::log.info "   Configured Mosquitto user: $MQTT_USER"
-bashio::log.info "   Created MQTT user: $MQTT_USER (password: ${#MQTT_PASS} chars)"
 
-# Restart Mosquitto to apply new user
+# Restart Mosquitto to apply config and trigger MQTT integration discovery
 if is_running "$SLUG_MOSQUITTO"; then
   restart_addon "$SLUG_MOSQUITTO" || exit 1
 fi
 
-# Verify MQTT is actually responding
+# Verify MQTT is responding with configured credentials
 wait_for_mqtt "$MQTT_HOST" "$MQTT_PORT" "$MQTT_USER" "$MQTT_PASS" || {
     bashio::log.fatal "❌ MQTT broker is not responding. Cannot continue."
     exit 1
 }
-
-# Restart Mosquitto again to trigger MQTT integration discovery in Home Assistant
-bashio::log.info "   Restarting Mosquitto to trigger MQTT integration discovery..."
-restart_addon "$SLUG_MOSQUITTO" || exit 1
-
-# Give Mosquitto time to fully restart and publish updated service discovery
-# This ensures the CAN bridge gets the correct credentials when it starts
-sleep 10
-bashio::log.info "   Mosquitto restarted"
-
-# Re-verify MQTT credentials still work after second restart
-bashio::log.info "   > Re-verifying MQTT credentials after restart..."
-wait_for_mqtt "$MQTT_HOST" "$MQTT_PORT" "$MQTT_USER" "$MQTT_PASS" || {
-    bashio::log.fatal "❌ MQTT credentials not working after restart. This shouldn't happen."
-    exit 1
-}
-bashio::log.info "   MQTT credentials verified and service discovery updated"
+bashio::log.info "   MQTT credentials verified"
 
 # Validate MQTT Integration
 bashio::log.info "   Validating MQTT integration..."
@@ -576,115 +456,32 @@ _See LibreCoach addon logs for more details_" \
   exit 1
 fi
 
-# If we get here, MQTT is configured - dismiss any previous notifications
-curl -s -X POST \
-  -H "Authorization: Bearer $SUPERVISOR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"notification_id": "librecoach_mqtt_setup"}' \
-  "http://supervisor/core/api/services/persistent_notification/dismiss" >/dev/null 2>&1
-
+# MQTT is configured - dismiss any previous setup notifications
+dismiss_notification "librecoach_mqtt_setup"
 bashio::log.info "   MQTT integration is configured"
-bashio::log.info ""
 
-# ========================
-# Phase 2: CAN-MQTT Bridge
-# ========================
-bashio::log.info "Phase 2: Installing CAN-MQTT Bridge"
-
-# Check if CAN-MQTT Bridge is installed
-if ! is_installed "$SLUG_CAN_BRIDGE"; then
-    bashio::log.info "   Installing CAN-MQTT Bridge addon..."
-    if ! install_addon "$SLUG_CAN_BRIDGE"; then
-        bashio::log.fatal "❌ Failed to install CAN-MQTT Bridge addon"
-        bashio::log.fatal "   This addon is essential for LibreCoach to function."
-        exit 1
-    fi
-else
-    bashio::log.info "   CAN-MQTT Bridge addon already installed"
+# Legacy cleanup: disable old CAN-MQTT Bridge add-on if present
+SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
+if is_installed "$SLUG_CAN_BRIDGE"; then
+    bashio::log.info "Migrating from standalone CAN-MQTT Bridge..."
+    is_running "$SLUG_CAN_BRIDGE" && api_call POST "/addons/$SLUG_CAN_BRIDGE/stop" "" >/dev/null 2>&1
+    api_call POST "/addons/$SLUG_CAN_BRIDGE/options" '{"boot":"manual","watchdog":false}' >/dev/null 2>&1
+    bashio::log.info "CAN-MQTT Bridge disabled. The vehicle_bridge now handles CAN."
+    bashio::log.info "You may uninstall can-mqtt-bridge from Settings → Add-ons."
 fi
 
-# Configure CAN-MQTT Bridge with our settings
-bashio::log.info "   Configuring CAN-MQTT Bridge..."
-
-# CAN bridge uses host_network: true, so Docker internal DNS (core-mosquitto) doesn't work.
-# Use the hassio gateway IP which is accessible from the host network.
-CAN_BRIDGE_MQTT_HOST="172.30.32.1"
-
-bashio::log.info "   > MQTT Configuration:"
-bashio::log.info "     - Host: $CAN_BRIDGE_MQTT_HOST (hassio gateway for host_network addon)"
-bashio::log.info "     - Port: $MQTT_PORT"
-bashio::log.info "     - User: $MQTT_USER"
-bashio::log.info "     - Password: [${#MQTT_PASS} characters]"
-
-# Use jq to construct the JSON, handling special characters in passwords
-CAN_BRIDGE_CONFIG=$(jq -n \
-  --arg can_interface "$CAN_INTERFACE" \
-  --arg can_bitrate "$CAN_BITRATE" \
-  --arg mqtt_host "$CAN_BRIDGE_MQTT_HOST" \
-  --argjson mqtt_port "$MQTT_PORT" \
-  --arg mqtt_user "$MQTT_USER" \
-  --arg mqtt_pass "$MQTT_PASS" \
-  --arg mqtt_topic_raw "$MQTT_TOPIC_RAW" \
-  --arg mqtt_topic_send "$MQTT_TOPIC_SEND" \
-  --arg mqtt_topic_status "$MQTT_TOPIC_STATUS" \
-  '{ 
-    "options": { 
-      "can_interface": $can_interface,
-      "can_bitrate": $can_bitrate,
-      "mqtt_host": $mqtt_host,
-      "mqtt_port": $mqtt_port,
-      "mqtt_user": $mqtt_user,
-      "mqtt_pass": $mqtt_pass,
-      "mqtt_topic_raw": $mqtt_topic_raw,
-      "mqtt_topic_send": $mqtt_topic_send,
-      "mqtt_topic_status": $mqtt_topic_status,
-      "debug_logging": false,
-      "ssl": false
-    }
-  }'
-)
-
-result=$(api_call POST "/addons/$SLUG_CAN_BRIDGE/options" "$CAN_BRIDGE_CONFIG")
-if echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
-    bashio::log.info "   CAN-MQTT Bridge configured"
-else
-    bashio::log.error "   ⚠️  Failed to configure CAN-MQTT Bridge: $(echo "$result" | jq -r '.message')"
-fi
-
-# Set CAN-MQTT Bridge to start on boot
-set_boot_auto "$SLUG_CAN_BRIDGE"
-
-# Start CAN-MQTT Bridge and verify it stays running
-bashio::log.info "   Starting CAN-MQTT Bridge..."
-result=$(api_call POST "/addons/$SLUG_CAN_BRIDGE/start" "")
-if ! echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
-    bashio::log.warning "   ⚠️  Failed to start CAN-MQTT Bridge: $(echo "$result" | jq -r '.message')"
-    BRIDGE_STATUS="failed_to_start"
-else
-    # Wait a few seconds for bridge to initialize and potentially fail
-    sleep 5
-
-    # Check if bridge is actually running
-    if is_running "$SLUG_CAN_BRIDGE"; then
-        bashio::log.info "   CAN-MQTT Bridge started successfully"
-        BRIDGE_STATUS="running"
-    else
-        # Bridge started but then stopped - fetch logs to show why
-        bashio::log.warning "   ⚠️  CAN-MQTT Bridge started but then stopped"
-        bashio::log.warning "   Bridge error logs:"
-        bridge_logs=$(get_addon_logs "$SLUG_CAN_BRIDGE" 20)
-        # Extract and display FATAL or error lines
-        echo "$bridge_logs" | grep -E "(FATAL|ERROR|❌)" | while IFS= read -r line; do
-            bashio::log.warning "      $line"
-        done
-        BRIDGE_STATUS="stopped_after_start"
-    fi
-fi
+# Publish config toggles as retained MQTT messages for Node-RED
+mqtt_pub() { mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" -r -q 1 "$@"; }
+MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
+mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
+mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
+mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
+bashio::log.info "   Published config toggles to MQTT (victron=$VICTRON_ENABLED, beta=$BETA_ENABLED, microair=$MICROAIR_ENABLED)"
 
 # ========================
-# Phase 3: Node-RED
+# Phase 2: Node-RED
 # ========================
-bashio::log.info "Phase 3: Installing Node-RED"
+bashio::log.info "Phase 2: Node-RED"
 
 CONFIRM_TAKEOVER=$(bashio::config 'confirm_nodered_takeover')
 NODERED_ALREADY_INSTALLED=false
@@ -728,9 +525,26 @@ if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
        bashio::log.warning "   1. Go to the LibreCoach add-on configuration tab."
        bashio::log.warning "   2. Enable 'Allow Node-RED Overwrite'."
        bashio::log.warning "   3. Scroll down and click 'Save'."
+       bashio::log.warning "   4. Restart the LibreCoach add-on."
        bashio::log.warning ""
-       bashio::log.fatal "   ❌ Installation aborted to protect existing flows."
-       exit 1
+       send_notification \
+         "⚠️ LibreCoach: Node-RED Setup Required" \
+         "**LibreCoach setup is paused — action required!**
+
+An existing Node-RED installation was detected. LibreCoach needs to replace your Node-RED flows with the LibreCoach project flows.
+
+**To proceed:**
+1. Go to **Settings → Add-ons → LibreCoach**
+2. Open the **Configuration** tab
+3. Enable **Allow Node-RED Overwrite**
+4. Click **Save**
+5. **Restart** the LibreCoach add-on
+
+⚠️ This will replace your existing Node-RED flows." \
+         "librecoach_nodered_takeover"
+       bashio::log.warning "   ⏸️  Setup paused. LibreCoach will not restart automatically."
+       bashio::log.warning "   After granting permission and saving, restart the add-on."
+       return 1
     else
        bashio::log.info "   ✅ Permission granted to take over Node-RED."
     fi
@@ -766,39 +580,25 @@ if [ -z "$EXISTING_SECRET" ] || [ "$EXISTING_SECRET" != "$LIBRECOACH_SECRET" ]; 
   NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
     --arg secret "$LIBRECOACH_SECRET" \
     --arg initcmd "$SETTINGS_INIT_CMD" \
-    --arg user "$MQTT_USER" \
-    --arg pass "$MQTT_PASS" \
-    '. + {"credential_secret": $secret, "ssl": false, "init_commands": [$initcmd], "users": [{"username": $user, "password": $pass, "permissions": "*"}]}')
-  bashio::log.info "   > Node-RED user being configured: $MQTT_USER"
-  log_debug "Node-RED options: $(echo "$NEW_OPTIONS" | jq -c '.users')"
+    '. + {"credential_secret": $secret, "ssl": false, "init_commands": [$initcmd]} | del(.users)')
   set_options "$SLUG_NODERED" "$NEW_OPTIONS" || exit 1
   NEEDS_RESTART=true
 else
   CURRENT_INIT_CMD=$(echo "$NR_OPTIONS" | jq -r '.init_commands[0] // empty')
-  CURRENT_USER=$(echo "$NR_OPTIONS" | jq -r --arg user "$MQTT_USER" '(.users // [])[] | select(.username == $user) | .username')
+  HAS_USERS=$(echo "$NR_OPTIONS" | jq -r 'if .users then "true" else "false" end')
 
-  # Check if config needs updating (init command changed or user missing)
-  if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ -z "$CURRENT_USER" ]; then
-    bashio::log.info "   > Updating Node-RED configuration (init commands / users)..."
+  # Check if config needs updating (init command changed or users auth still present)
+  if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ "$HAS_USERS" = "true" ]; then
+    bashio::log.info "   > Updating Node-RED configuration (init commands)..."
     NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
       --arg initcmd "$SETTINGS_INIT_CMD" \
-      --arg user "$MQTT_USER" \
-      --arg pass "$MQTT_PASS" \
-      '
-      . + {"init_commands": [$initcmd]} |
-      .users = (.users // []) |
-      .users |= (map(select(.username != $user)) + [{"username": $user, "password": $pass, "permissions": "*"}])
-    ')
+      '. + {"init_commands": [$initcmd]} | del(.users)')
     set_options "$SLUG_NODERED" "$NEW_OPTIONS" || exit 1
     NEEDS_RESTART=true
   else
     bashio::log.info "   Node-RED configuration is up to date"
   fi
 fi
-
-# Verify Node-RED configuration was applied
-NR_VERIFY=$(api_call GET "/addons/$SLUG_NODERED/info" | jq -r '.data.options.users // "null"')
-bashio::log.info "   > Node-RED users configured: $NR_VERIFY"
 
 # Ensure Node-RED starts/restarts to apply init commands
 if [ "$NEEDS_RESTART" = "true" ]; then
@@ -822,18 +622,10 @@ else
   fi
 fi
 
-# After starting/restarting, wait for the API to be available.
-# This ensures the init_command has run and flows are loaded before we proceed.
+# Wait for Node-RED to be available before proceeding.
+# Flows are loaded automatically by Node-RED on startup via init_commands — no API deploy needed.
 if ! wait_for_nodered_api; then
-    bashio::log.fatal "   ❌ Node-RED API did not become available. Cannot deploy flows."
-    exit 1
-fi
-
-# Now, trigger a flow deployment. This is the equivalent of clicking the
-# "Deploy" button in the UI and forces MQTT nodes to activate their connection.
-if ! deploy_nodered_flows; then
-    bashio::log.warning "   ⚠️  Flow deployment failed. MQTT nodes may not connect."
-    bashio::log.warning "   You may need to open Node-RED and click 'Deploy' manually."
+    bashio::log.warning "   ⚠️  Node-RED API did not respond. It may still be starting."
 fi
 
 # Ensure Node-RED starts on boot
@@ -845,50 +637,27 @@ mark_nodered_managed
 # ========================
 # Installation Summary
 # ========================
-echo ""
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
 bashio::log.info "║          LibreCoach Installation Summary                  ║"
-bashio::log.info "╔════════════════════════════════════════════════════════════╗"
-bashio::log.info ""
-bashio::log.info "  MQTT Integration ................ ✅ Configured"
-bashio::log.info "  Mosquitto MQTT Broker ........... ✅ Running"
-if [ "$BRIDGE_STATUS" = "running" ]; then
-    bashio::log.info "  CAN-MQTT Bridge ................. ✅ Running"
-elif [ "$BRIDGE_STATUS" = "stopped_after_start" ]; then
-    bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED"
-    bashio::log.warning "    └─ Bridge stopped after startup (MQTT auth failure likely)"
-    bashio::log.warning "    └─ Check MQTT credentials in LibreCoach configuration"
-    bashio::log.warning "    └─ View full error: Settings → Add-ons → CAN-MQTT Bridge → Logs"
-elif [ "$BRIDGE_STATUS" = "failed_to_start" ]; then
-    bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  FAILED TO START"
-    bashio::log.warning "    └─ Check if CAN hardware is connected"
-else
-    bashio::log.warning "  CAN-MQTT Bridge ................. ⚠️  UNKNOWN STATUS"
-fi
-bashio::log.info "  Node-RED ........................ ✅ Configured"
-bashio::log.info ""
-if [ "$BRIDGE_STATUS" = "running" ]; then
-    bashio::log.info "  🎉 All components installed successfully!"
-else
-    bashio::log.warning "  ⚠️  Installation completed with warnings - see above"
-fi
-bashio::log.info ""
+bashio::log.info "╠════════════════════════════════════════════════════════════╣"
+bashio::log.info "║  MQTT Integration ................ Configured             ║"
+bashio::log.info "║  Mosquitto MQTT Broker ........... Running                ║"
+bashio::log.info "║  Vehicle Bridge .................. Managed by s6          ║"
+bashio::log.info "║  Node-RED ........................ Configured             ║"
+bashio::log.info "╠════════════════════════════════════════════════════════════╣"
+bashio::log.info "║  All components installed successfully!                   ║"
+bashio::log.info "║  See the Overview Dashboard for new LibreCoach entities   ║"
+bashio::log.info "║  Visit https://LibreCoach.com for more information        ║"
 bashio::log.info "╚════════════════════════════════════════════════════════════╝"
-bashio::log.info ""
-bashio::log.info "🚐 See the Overview Dashboard for new LibreCoach entities"
-bashio::log.info "🚐 Visit https://LibreCoach.com for more information"
-bashio::log.info ""
-bashio::log.info "   ✅ LibreCoach setup complete."
 
 } # end run_orchestrator
 
 # Run orchestrator, capture result
+# As a cont-init.d script, this runs once at startup before s6 services start.
+# The vehicle_bridge Python process is managed by s6 as a longrun service.
 if run_orchestrator; then
-    bashio::log.info "Orchestrator complete."
+    bashio::log.info "Orchestrator complete. Vehicle bridge starting via s6."
 else
     bashio::log.warning "Orchestrator encountered errors. Check logs above."
     bashio::log.warning "Fix the issue, then restart the addon from Settings → Add-ons → LibreCoach."
 fi
-
-# Always stay alive so HAOS can restart us on updates
-sleep infinity

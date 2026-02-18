@@ -1,3 +1,16 @@
+## [1.1] - 2026-02-17
+
+**⚠️ Action Required:** The CAN-to-MQTT Bridge add-on is no onger required, it will be automatically disabled. You can safely uninstall it from **Settings → Apps**.
+
+### Added
+
+- Micro-Air EasyTouch thermostat integration via Bluetooth (enable under Configuration → Enable Micro-Air EasyTouch Thermostat Integration)
+- Victron integration can now be disabled under Configuration
+
+### Changed
+
+- CAN bridge is now built into LibreCoach — the standalone CAN-to-MQTT Bridge add-on is no longer required
+
 ## [1.0.3] - 2026-02-15
 
 **⚠️ Action Required:** Start the addon once after this update. It will configure itself to auto-start — future updates will apply automatically.

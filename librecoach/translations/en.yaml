@@ -1,28 +1,52 @@
 configuration:
-  confirm_nodered_takeover:
-    name: "Allow Node-RED Overwrite"
-    description: "DANGER: Enabling this option permits LibreCoach to completely overwrite your existing Node-RED flows. Only enable this if you have backed up your existing flows."
-  mqtt_user:
-    name: "MQTT Username"
-    description: "The username used by the bridge to authenticate with the MQTT broker."
-  mqtt_pass:
-    name: "MQTT Password"
-    description: "The password used by the bridge to authenticate with the MQTT broker."
-  mqtt_topic_raw:
-    name: "MQTT Topic - Raw CAN Messages"
-    description: "MQTT topic for publishing raw CAN bus messages. Default: can/raw"
-  mqtt_topic_send:
-    name: "MQTT Topic - Send CAN Messages"
-    description: "MQTT topic for receiving CAN messages to send on the bus. Default: can/send"
-  mqtt_topic_status:
-    name: "MQTT Topic - Bridge Status"
-    description: "MQTT topic for bridge status messages. Default: can/status"
-  can_interface:
-    name: "CAN Interface"
-    description: "The host network interface name for your CAN hardware (e.g., can0, vcan0)."
-  can_bitrate:
-    name: "CAN Bus Bitrate"
-    description: "The speed of your RV-C network. The standard for RV-C is 250000 (250kbps)."
+  victron_enabled:
+    name: "Enable Victron Integration"
+    description: "Enables integration with Victron Energy systems via MQTT. Requires a GX device with MQTT enabled. See the full online documentation for more details."
+  microair_enabled:
+    name: "Enable Micro-Air EasyTouch Thermostat Integration"
+    description: "Enables support for Micro-Air EasyTouch RV thermostats via Bluetooth."
+  microair_email:
+    name: "Micro-Air Account Email"
+    description: "Email address used for your Micro-Air EasyTouch account (required if password is set)."
+  microair_password:
+    name: "Micro-Air Account Password"
+    description: "Password for your Micro-Air EasyTouch account (required for some devices)."
+  beta_enabled:
+    name: "Enable Beta Testing"
+    description: "Enables experimental beta features. Use at your own risk."
   debug_logging:
     name: "Enable Debug Logging"
-    description: "Enables verbose logging for troubleshooting. Leave disabled for normal operation to reduce log size."
+    description: "Enables detailed debug logging for troubleshooting."
+  confirm_nodered_takeover:
+    name: "Allow Node-RED Overwrite (Initial install config only)"
+    description: "Allows LibreCoach to overwrite your existing Node-RED flows. WARNING: This will delete your current flows!"
+  prevent_flow_updates:
+    name: "Prevent Flow Updates (Referenced at every update)"
+    description: "Enable this to PRESERVE your customized flows during add-on updates. Core files (decoders, etc.) will still be updated, but flows.json will not be touched."
+  mqtt_host:
+    name: "MQTT Broker Host"
+    description: "Hostname or IP address of the MQTT broker (defaults to core-mosquitto)."
+  mqtt_port:
+    name: "MQTT Broker Port"
+    description: "Port number for the MQTT broker (defaults to 1883)."
+  mqtt_user:
+    name: "MQTT User"
+    description: "Username for MQTT authentication."
+  mqtt_pass:
+    name: "MQTT Password"
+    description: "Password for MQTT authentication."
+  mqtt_topic_raw:
+    name: "CAN Raw Topic"
+    description: "MQTT topic for publishing raw CAN frames."
+  mqtt_topic_send:
+    name: "CAN Send Topic"
+    description: "MQTT topic for sending CAN frames."
+  mqtt_topic_status:
+    name: "CAN Status Topic"
+    description: "MQTT topic for publishing CAN interface status."
+  can_interface:
+    name: "CAN Interface"
+    description: "System interface name for the CAN adapter (e.g., can0)."
+  can_bitrate:
+    name: "CAN Bitrate"
+    description: "Bitrate for the CAN bus connection."

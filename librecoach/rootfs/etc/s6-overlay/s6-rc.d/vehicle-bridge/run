@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv bashio
+exec python3 /opt/vehicle_bridge/main.py

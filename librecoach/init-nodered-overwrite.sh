@@ -11,10 +11,10 @@ PROJECT_DIR="/config/projects/librecoach-node-red"
 SOURCE_DIR="/share/.librecoach"
 
 # Create project directories
-mkdir -p "$PROJECT_DIR/rvc"
+mkdir -p "$PROJECT_DIR/data"
 
-# Copy RVC decoder data
-cp -r "$SOURCE_DIR/rvc/." "$PROJECT_DIR/rvc/"
+# Copy Data/Decoder files
+cp -r "$SOURCE_DIR/data/." "$PROJECT_DIR/data/"
 
 # Copy package.json to config directory for Node-RED dependencies
 cp "$SOURCE_DIR/package.json" /config/package.json
@@ -23,6 +23,9 @@ cp "$SOURCE_DIR/package.json" /config/package.json
 # flows_cred.json contains MQTT credentials encrypted with credential_secret="librecoach"
 cp "$SOURCE_DIR/flows.json" /config/flows.json
 cp "$SOURCE_DIR/flows_cred.json" /config/flows_cred.json
+
+# Copy settings.js to Node-RED config
+cp "$SOURCE_DIR/data/settings.js" /config/settings.js
 
 # Keep GPL license with the installed project
 if [ -f "$SOURCE_DIR/LICENSE" ]; then
