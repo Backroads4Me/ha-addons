@@ -41,7 +41,7 @@ Find **LibreCoach** in the store and click **Install**, then **Start**.
 ## Existing Node-RED Users
 
 If you already use Node-RED, LibreCoach will **PAUSE** to protect your work.
-To proceed, you must go to the **Configuration** tab and enable `confirm_nodered_takeover`.
+To proceed, you must go to the **Configuration** tab and enable `Allow Node-RED Overwrite`.
 _See the [Documentation](https://github.com/backroads4me/ha-addons/blob/main/librecoach/DOCS.md) for full details._
 
 ## Support
@@ -73,11 +73,10 @@ The Micro-Air EasyTouch Bluetooth integration was built with BLE protocol refere
 - [k3vmcd](https://github.com/k3vmcd) — [ha-micro-air-easytouch](https://github.com/k3vmcd/ha-micro-air-easytouch)
 - [mlefevre](https://github.com/mlefevre) — [ha_EasyTouchRV_MicroAir_MZ](https://github.com/mlefevre/ha_EasyTouchRV_MicroAir_MZ)
 
-
 ## Support LibreCoach
 
-LibreCoach is free and open source.
-If it's useful to you, you can support its development in either of these ways:
+LibreCoach is free and open source. If you find it useful, please consider supporting the project:
 
+[![GitHub stars](https://img.shields.io/github/stars/Backroads4Me/ha-addons?style=social)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
 [![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)
