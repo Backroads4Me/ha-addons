@@ -1,4 +1,4 @@
-## [1.1.2] - 2026-02-17
+## [1.1.3] - 2026-02-17
 
 **⚠️ Action Required:** The CAN-to-MQTT Bridge add-on is no onger required, it will be automatically disabled. You can safely uninstall it from **Settings → Apps**.
 
@@ -10,7 +10,7 @@
 ### Changed
 
 - CAN bridge is now built into LibreCoach — the standalone CAN-to-MQTT Bridge add-on is no longer required
-- Fixed an issue with RV-C polling in a new installatino
+- Fixed an issue with RV-C polling in a new installations
 
 ## [1.0.3] - 2026-02-15
 
