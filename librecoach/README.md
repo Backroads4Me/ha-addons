@@ -66,6 +66,14 @@ Contributions to the LibreCoach add-on require signing the CLA. See [CONTRIBUTIN
 
 ---
 
+## Acknowledgements
+
+The Micro-Air EasyTouch Bluetooth integration was built with BLE protocol reference from the work of:
+
+- [k3vmcd](https://github.com/k3vmcd) — [ha-micro-air-easytouch](https://github.com/k3vmcd/ha-micro-air-easytouch)
+- [mlefevre](https://github.com/mlefevre) — [ha_EasyTouchRV_MicroAir_MZ](https://github.com/mlefevre/ha_EasyTouchRV_MicroAir_MZ)
+
+
 ## Support LibreCoach
 
 LibreCoach is free and open source.

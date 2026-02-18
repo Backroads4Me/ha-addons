@@ -1,3 +1,11 @@
+# SPDX-License-Identifier: GPL-3.0-only
+#
+# Micro-Air EasyTouch BLE bridge for LibreCoach
+#
+# Micro-Air BLE protocol reference (UUIDs, mode mappings, status structure):
+#   https://github.com/k3vmcd/ha-micro-air-easytouch  (GPL-3.0)
+#   https://github.com/mlefevre/ha_EasyTouchRV_MicroAir_MZ  (GPL-3.0)
+
 import asyncio
 import json
 import logging
