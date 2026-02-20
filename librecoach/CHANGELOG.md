@@ -1,4 +1,4 @@
-## [1.1.5] - 2026-02-19
+## [1.1.6] - 2026-02-19
 
 **⚠️ Action Required:** The CAN-to-MQTT Bridge add-on is no onger required, it will be automatically disabled. You can safely uninstall it from **Settings → Apps**.
 

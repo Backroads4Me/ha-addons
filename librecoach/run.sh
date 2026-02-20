@@ -515,7 +515,9 @@ if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
     bashio::log.info "   Node-RED already managed by LibreCoach (version $MANAGED_VERSION)"
   else
     # Node-RED exists but not managed by LibreCoach - need permission
-    if [ "$CONFIRM_TAKEOVER" != "true" ]; then
+    if [ "$PREVENT_FLOW_UPDATES" = "true" ]; then
+       bashio::log.info "   ✅ Flow update prevention enabled - implicitly allowing Node-RED management."
+    elif [ "$CONFIRM_TAKEOVER" != "true" ]; then
        bashio::log.warning ""
        bashio::log.warning "   ⚠️  EXISTING INSTALLATION DETECTED"
        bashio::log.warning "   LibreCoach needs to configure Node-RED to run the LibreCoach project."

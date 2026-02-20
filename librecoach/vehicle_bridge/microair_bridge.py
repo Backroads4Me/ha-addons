@@ -9,7 +9,6 @@
 import asyncio
 import json
 import logging
-import time
 
 from dbus_next.aio import MessageBus
 from dbus_next.constants import BusType
@@ -93,7 +92,7 @@ class MicroAirBridge:
             self.mqtt.publish("librecoach/bridge/ble", "disabled", retain=True)
             return
 
-        self.mqtt.publish("librecoach/bridge/ble", "scanning", retain=True)
+        self.mqtt.publish("librecoach/bridge/ble", "monitoring", retain=True)
         self.mqtt.subscribe("librecoach/ble/microair/+/set", self._on_command)
         self._scan_task = asyncio.create_task(self._scan_loop())
 
@@ -109,69 +108,123 @@ class MicroAirBridge:
             await device.stop()
 
     async def _scan_loop(self):
-        scan_counter = 0
-        while not self._stopping:
-            scan_counter += 1
-            
-            # If devices are found, scan less frequently (every ~10 mins) to improve stability
-            if self._devices and scan_counter % 20 != 1:
-                await asyncio.sleep(self._scan_interval)
-                continue
+        """Monitor BlueZ for EasyTouch devices via InterfacesAdded signal.
 
+        Uses passive monitoring (no StartDiscovery) to coexist with HA Core Bluetooth.
+        Falls back to a single brief active scan if no devices are found within 30s,
+        which handles the case where HA Core Bluetooth is disabled.
+        """
+        while not self._stopping:
             bus = None
             try:
                 bus = await _get_bus()
-
-                # Get adapter interface
-                adapter = await _get_interface(bus, "/org/bluez/hci0", "org.bluez.Adapter1")
-
-                # Set discovery filter for BLE with MicroAir service UUID
-                await adapter.call_set_discovery_filter({
-                    "Transport": Variant("s", "le"),
-                    "UUIDs": Variant("as", [UUIDS["service"]]),
-                })
-
-                await adapter.call_start_discovery()
-                await asyncio.sleep(10.0)
-
-                try:
-                    await adapter.call_stop_discovery()
-                except Exception:
-                    pass
-
-                # Enumerate discovered devices via ObjectManager
                 obj_manager = await _get_interface(bus, "/", "org.freedesktop.DBus.ObjectManager")
-                objects = await obj_manager.call_get_managed_objects()
 
+                # Check for devices already in BlueZ's object tree (from HA Core's scanner)
+                objects = await obj_manager.call_get_managed_objects()
                 for path, interfaces in objects.items():
-                    if "org.bluez.Device1" not in interfaces:
-                        continue
-                    props = interfaces["org.bluez.Device1"]
-                    name = props.get("Name", Variant("s", "")).value
-                    if not name.startswith("EasyTouch"):
-                        continue
-                    address = props.get("Address", Variant("s", "")).value.lower()
-                    if address not in self._devices:
-                        log.info("Discovered MicroAir device: %s (%s)", address, name)
-                        microair = _MicroAirDevice(
-                            address=address,
-                            device_path=path,
-                            name=name,
-                            password=self._password,
-                            email=self._email,
-                            mqtt=self.mqtt,
-                        )
-                        self._devices[address] = microair
-                        microair.start(self._scan_interval)
+                    self._handle_device(path, interfaces)
+
+                # Subscribe to InterfacesAdded — fires when BlueZ discovers any new device
+                obj_manager.on_interfaces_added(self._handle_device)
+
+                # If no devices found yet, give passive discovery 30s before falling back
+                # to a single brief active scan (needed when HA Core Bluetooth is disabled)
+                if not self._devices:
+                    await asyncio.sleep(30)
+                    if not self._devices:
+                        log.info("No MicroAir devices found passively, trying active scan...")
+                        await self._do_discovery_scan(bus, obj_manager)
+
+                # Keep bus alive to receive InterfacesAdded signals.
+                # Periodic GetManagedObjects re-check catches devices that appeared
+                # while the bus was reconnecting (no active scan needed).
+                check_counter = 0
+                while not self._stopping:
+                    await asyncio.sleep(30)
+                    check_counter += 1
+                    if check_counter % 10 == 0:  # Every ~5 minutes
+                        try:
+                            objects = await obj_manager.call_get_managed_objects()
+                            for path, interfaces in objects.items():
+                                self._handle_device(path, interfaces)
+                        except Exception:
+                            break  # Bus dropped — reconnect outer loop
 
             except Exception as exc:
-                log.warning("BLE scan error: %s", exc)
+                log.warning("BLE monitor error: %s", exc)
                 self.mqtt.publish("librecoach/bridge/ble", f"error: {exc}", retain=True)
             finally:
                 if bus:
                     bus.disconnect()
 
-            await asyncio.sleep(self._scan_interval)
+            if not self._stopping:
+                await asyncio.sleep(15)
+
+    def _handle_device(self, path, interfaces):
+        """Process a BlueZ device object — called from InterfacesAdded or GetManagedObjects."""
+        if "org.bluez.Device1" not in interfaces:
+            return
+        props = interfaces["org.bluez.Device1"]
+        name = props.get("Name", Variant("s", "")).value
+        if not name.startswith("EasyTouch"):
+            return
+        address = props.get("Address", Variant("s", "")).value.lower()
+
+        if address in self._devices:
+            # Update stale device path if BlueZ re-registered the device under a new path.
+            # This fixes the "interface not found on this object" error after adapter resets.
+            existing = self._devices[address]
+            if existing.device_path != path:
+                log.info("MicroAir %s: device path updated %s -> %s", address, existing.device_path, path)
+                existing.device_path = path
+                existing._connected = False  # Force reconnect with fresh path
+            return
+
+        log.info("Discovered MicroAir device: %s (%s)", address, name)
+        microair = _MicroAirDevice(
+            address=address,
+            device_path=path,
+            name=name,
+            password=self._password,
+            email=self._email,
+            mqtt=self.mqtt,
+        )
+        self._devices[address] = microair
+        microair.start(self._scan_interval)
+
+    async def _do_discovery_scan(self, bus, obj_manager):
+        """Single brief active BLE scan to seed BlueZ's device cache.
+        Only called when no devices were found via passive monitoring.
+        """
+        adapter_path = "/org/bluez/hci0"
+        try:
+            # Find first available adapter rather than hardcoding hci0
+            objects = await obj_manager.call_get_managed_objects()
+            for path, interfaces in objects.items():
+                if "org.bluez.Adapter1" in interfaces:
+                    adapter_path = path
+                    break
+
+            adapter = await _get_interface(bus, adapter_path, "org.bluez.Adapter1")
+            await adapter.call_set_discovery_filter({
+                "Transport": Variant("s", "le"),
+                "UUIDs": Variant("as", [UUIDS["service"]]),
+            })
+            await adapter.call_start_discovery()
+            await asyncio.sleep(10.0)
+            try:
+                await adapter.call_stop_discovery()
+            except Exception:
+                pass
+
+            # Check for newly discovered devices
+            objects = await obj_manager.call_get_managed_objects()
+            for path, interfaces in objects.items():
+                self._handle_device(path, interfaces)
+
+        except Exception as exc:
+            log.warning("Active discovery scan failed: %s", exc)
 
     async def _on_command(self, topic, payload):
         parts = topic.split("/")
@@ -319,36 +372,21 @@ class _MicroAirDevice:
         failure_count = 0
         while not self._stopping:
             try:
-                # Ensure connected
-                await self._ensure_connected()
-                
-                # Fetch headers/config if needed
-                if not self._zone_configs:
-                    # Get available zones (default to 0 if not yet known)
-                    zones = [0] 
-                    if hasattr(self, "_zone_configs") and self._zone_configs:
-                         zones = list(self._zone_configs.keys())
-                    
-                    # We need to discover zones first? 
-                    # Actually _fetch_zone_configs handles the logic, 
-                    # but we need to know WHICH zones to fetch.
-                    # Start with 0, Status response will reveal others.
-                    pass
-
                 status = await self._request_json({"Type": "Get Status"})
                 if not status:
                     raise Exception("No status response")
-                
+
                 parsed = _parse_status(status)
-                
+
                 # If we discovered new zones in the status, ensure we have configs for them
                 if "zones" in parsed:
                     found_zones = []
                     for z in parsed["zones"].keys():
                         try:
                             found_zones.append(int(z))
-                        except: pass
-                    
+                        except Exception:
+                            pass
+
                     missing_configs = [z for z in found_zones if z not in self._zone_configs]
                     if missing_configs:
                         await self._fetch_zone_configs(missing_configs)
@@ -363,7 +401,7 @@ class _MicroAirDevice:
                         retain=False,
                     )
 
-                # Success! Reset failure count and mark online
+                # Success — reset failure count and mark online
                 failure_count = 0
                 self.mqtt.publish(
                     f"librecoach/ble/microair/{self.address}/available",
@@ -379,26 +417,25 @@ class _MicroAirDevice:
             except Exception as exc:
                 failure_count += 1
                 log.warning("MicroAir poll failed for %s (fail count: %d): %s", self.address, failure_count, exc)
-                
+
                 # Connection might be broken, tear it down
                 await self._disconnect()
-                
-                # Only report offline if we've failed consistently (e.g. 3 times * 30s = 90s offline)
-                if failure_count >= 3:
-                     self.mqtt.publish(
+
+                # Only report offline after 10 consecutive failures (~5 min at 30s interval)
+                # to avoid flipping unavailable on transient BLE interference
+                if failure_count >= 10:
+                    self.mqtt.publish(
                         f"librecoach/ble/microair/{self.address}/available",
                         "offline",
                         retain=True,
                     )
-                     self.mqtt.publish(
+                    self.mqtt.publish(
                         f"librecoach/bridge/microair/{self.address}",
                         "disconnected",
                         retain=True,
                     )
 
-            # Use a shorter retry delay for early failures (BLE interference on startup),
-            # then back off to the full interval once the device is likely asleep.
-            retry_delay = interval if failure_count >= 3 else min(interval, 10)
+            retry_delay = interval if failure_count >= 10 else min(interval, 10)
             await asyncio.sleep(retry_delay)
 
     async def send_command(self, command):
@@ -406,7 +443,6 @@ class _MicroAirDevice:
             await self._write_json(command)
         except Exception as exc:
             log.warning("MicroAir command failed for %s: %s", self.address, exc)
-
 
     async def _fetch_zone_configs(self, zones):
         for zone in zones:
@@ -428,73 +464,58 @@ class _MicroAirDevice:
 
     async def _request_json(self, command):
         async with self._lock:
-            last_exc = None
-            for attempt in range(2):
-                try:
-                    await self._ensure_connected()
+            try:
+                await self._ensure_connected()
 
-                    cmd_path = self._char_paths.get(UUIDS["jsonCmd"])
-                    ret_path = self._char_paths.get(UUIDS["jsonReturn"])
+                cmd_path = self._char_paths.get(UUIDS["jsonCmd"])
+                ret_path = self._char_paths.get(UUIDS["jsonReturn"])
 
-                    if not cmd_path or not ret_path:
-                        log.debug("MicroAir GATT characteristics not found")
-                        return None
+                if not cmd_path or not ret_path:
+                    log.debug("MicroAir GATT characteristics not found")
+                    return None
 
-                    cmd_iface = await _get_interface(
-                        self._bus, cmd_path, "org.bluez.GattCharacteristic1"
-                    )
-                    await cmd_iface.call_write_value(
-                        json.dumps(command).encode("utf-8"), {}
-                    )
-                    await asyncio.sleep(1.0)
+                cmd_iface = await _get_interface(
+                    self._bus, cmd_path, "org.bluez.GattCharacteristic1"
+                )
+                await cmd_iface.call_write_value(
+                    json.dumps(command).encode("utf-8"), {}
+                )
+                await asyncio.sleep(1.0)
 
-                    ret_iface = await _get_interface(
-                        self._bus, ret_path, "org.bluez.GattCharacteristic1"
-                    )
-                    result = await ret_iface.call_read_value({})
-                    payload = bytes(result)
-                    if not payload:
-                        return None
-                    decoded = json.loads(payload.decode("utf-8"))
-                    return decoded
-                except Exception as exc:
-                    last_exc = exc
-                    log.debug("MicroAir request failed (attempt %d): %s", attempt + 1, exc)
-                    await self._disconnect()
-                    if attempt == 0:
-                        await asyncio.sleep(5.0)
+                ret_iface = await _get_interface(
+                    self._bus, ret_path, "org.bluez.GattCharacteristic1"
+                )
+                result = await ret_iface.call_read_value({})
+                payload = bytes(result)
+                if not payload:
+                    return None
+                return json.loads(payload.decode("utf-8"))
 
-            log.debug("MicroAir request failed after retries: %s", last_exc)
-            return None
+            except Exception as exc:
+                log.debug("MicroAir request failed: %s", exc)
+                await self._disconnect()
+                return None
 
     async def _write_json(self, command):
         async with self._lock:
-            last_exc = None
-            for attempt in range(2):
-                try:
-                    await self._ensure_connected()
+            try:
+                await self._ensure_connected()
 
-                    cmd_path = self._char_paths.get(UUIDS["jsonCmd"])
-                    if not cmd_path:
-                        log.debug("MicroAir jsonCmd characteristic not found")
-                        return
-
-                    cmd_iface = await _get_interface(
-                        self._bus, cmd_path, "org.bluez.GattCharacteristic1"
-                    )
-                    await cmd_iface.call_write_value(
-                        json.dumps(command).encode("utf-8"), {}
-                    )
+                cmd_path = self._char_paths.get(UUIDS["jsonCmd"])
+                if not cmd_path:
+                    log.debug("MicroAir jsonCmd characteristic not found")
                     return
-                except Exception as exc:
-                    last_exc = exc
-                    log.debug("MicroAir write failed (attempt %d): %s", attempt + 1, exc)
-                    await self._disconnect()
-                    if attempt == 0:
-                        await asyncio.sleep(2.0)
-            
-            if last_exc:
-                raise last_exc
+
+                cmd_iface = await _get_interface(
+                    self._bus, cmd_path, "org.bluez.GattCharacteristic1"
+                )
+                await cmd_iface.call_write_value(
+                    json.dumps(command).encode("utf-8"), {}
+                )
+            except Exception as exc:
+                log.debug("MicroAir write failed: %s", exc)
+                await self._disconnect()
+                raise
 
 
 def _parse_status(status):
