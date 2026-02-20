@@ -5,7 +5,6 @@ import signal
 
 from mqtt_client import MqttClient
 from can_bridge import CanBridge
-from microair_bridge import MicroAirBridge
 # from onecontrol_bridge import OneControlBridge
 
 # NOTE: TrumaBridge (LIN serial) is on hold — not yet implemented.
@@ -35,7 +34,6 @@ async def main():
 
     modules = [
         CanBridge(config, mqtt),
-        MicroAirBridge(config, mqtt),
         # OneControlBridge(config, mqtt),
         # TrumaBridge(config, mqtt),  # On hold
     ]

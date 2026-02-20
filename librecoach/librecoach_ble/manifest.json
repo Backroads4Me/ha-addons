@@ -1,0 +1,16 @@
+{
+    "domain": "librecoach_ble",
+    "name": "LibreCoach BLE Bridge",
+    "codeowners": [
+        "@Backroads4Me"
+    ],
+    "dependencies": [
+        "bluetooth",
+        "mqtt"
+    ],
+    "documentation": "https://librecoach.com",
+    "integration_type": "hub",
+    "iot_class": "local_polling",
+    "requirements": [],
+    "version": "1.0.2"
+}

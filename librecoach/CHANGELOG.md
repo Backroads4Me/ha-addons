@@ -1,3 +1,14 @@
+## [1.1.7] - 2026-02-20
+
+### Changed
+
+- Moved Bluetooth communication from add-on container to custom integration for improved reliability
+
+### Removed
+
+- Removed standalone microair_bridge.py from vehicle bridge (replaced by HA integration)
+- Removed dbus-next dependency (no longer needed)
+
 ## [1.1.6] - 2026-02-19
 
 **⚠️ Action Required:** The CAN-to-MQTT Bridge add-on is no onger required, it will be automatically disabled. You can safely uninstall it from **Settings → Apps**.

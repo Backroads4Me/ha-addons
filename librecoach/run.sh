@@ -479,6 +479,99 @@ mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
 bashio::log.info "   Published config toggles to MQTT (victron=$VICTRON_ENABLED, beta=$BETA_ENABLED, microair=$MICROAIR_ENABLED)"
 
 # ========================
+# Phase 1.5: LibreCoach BLE Integration
+# ========================
+MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
+
+if [ "$MICROAIR_ENABLED" = "true" ]; then
+    bashio::log.info "Phase 1.5: LibreCoach BLE Integration"
+
+    INTEGRATION_SRC="/opt/librecoach_ble"
+    INTEGRATION_DST="/config/custom_components/librecoach_ble"
+
+    # Write config file for the integration to read at runtime
+    MICROAIR_PASSWORD=$(bashio::config 'microair_password')
+    MICROAIR_EMAIL=$(bashio::config 'microair_email')
+    BLE_SCAN_INTERVAL=$(bashio::config 'ble_scan_interval')
+
+    jq -n \
+        --argjson enabled true \
+        --arg password "$MICROAIR_PASSWORD" \
+        --arg email "$MICROAIR_EMAIL" \
+        --argjson scan_interval "${BLE_SCAN_INTERVAL:-30}" \
+        '{
+            microair_enabled: $enabled,
+            microair_password: $password,
+            microair_email: $email,
+            ble_scan_interval: $scan_interval
+        }' > /config/.librecoach-ble-config.json
+
+    # Install/update integration files (only restart HA if code actually changed)
+    NEEDS_HA_RESTART=false
+
+    BUNDLED_HASH=$(find "$INTEGRATION_SRC" -type f | sort | xargs md5sum 2>/dev/null | md5sum | awk '{print $1}')
+
+    if [ -d "$INTEGRATION_DST" ]; then
+        INSTALLED_HASH=$(find "$INTEGRATION_DST" -type f | sort | xargs md5sum 2>/dev/null | md5sum | awk '{print $1}')
+
+        if [ "$BUNDLED_HASH" != "$INSTALLED_HASH" ]; then
+            bashio::log.info "   Updating librecoach_ble integration..."
+            rm -rf "$INTEGRATION_DST"
+            cp -r "$INTEGRATION_SRC" "$INTEGRATION_DST"
+            NEEDS_HA_RESTART=true
+        else
+            bashio::log.info "   librecoach_ble is up to date"
+        fi
+    else
+        bashio::log.info "   Installing librecoach_ble integration..."
+        mkdir -p /config/custom_components
+        cp -r "$INTEGRATION_SRC" "$INTEGRATION_DST"
+        NEEDS_HA_RESTART=true
+    fi
+
+    # Add to configuration.yaml if not present
+    if ! grep -q "librecoach_ble:" /config/configuration.yaml 2>/dev/null; then
+        bashio::log.info "   Adding librecoach_ble to configuration.yaml..."
+        echo -e "\nlibrecoach_ble:" >> /config/configuration.yaml
+        NEEDS_HA_RESTART=true
+    fi
+
+    if [ "$NEEDS_HA_RESTART" = "true" ]; then
+        bashio::log.info "   Restarting Home Assistant Core to load integration..."
+        api_call POST "/core/restart" >/dev/null 2>&1
+
+        # Wait for HA to come back (up to 3 minutes)
+        bashio::log.info "   Waiting for Home Assistant to restart..."
+        retries=90
+        while [ $retries -gt 0 ]; do
+            if api_call GET "/core/api/" 2>/dev/null | grep -q "API running"; then
+                bashio::log.info "   Home Assistant is back online"
+                break
+            fi
+            sleep 2
+            ((retries--))
+        done
+
+        if [ $retries -eq 0 ]; then
+            bashio::log.warning "   ⚠️  HA restart taking longer than expected"
+            bashio::log.warning "   BLE integration will load after HA finishes"
+        fi
+    fi
+
+    bashio::log.info "   LibreCoach BLE integration ready"
+else
+    bashio::log.info "Phase 1.5: MicroAir disabled, skipping BLE integration"
+
+    # Clean up if previously installed but now disabled
+    if [ -d "/config/custom_components/librecoach_ble" ]; then
+        bashio::log.info "   Removing librecoach_ble integration..."
+        rm -rf "/config/custom_components/librecoach_ble"
+        sed -i '/^librecoach_ble:/d' /config/configuration.yaml 2>/dev/null
+        rm -f /config/.librecoach-ble-config.json
+    fi
+fi
+
+# ========================
 # Phase 2: Node-RED
 # ========================
 bashio::log.info "Phase 2: Node-RED"

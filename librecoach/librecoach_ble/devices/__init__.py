@@ -1,0 +1,13 @@
+"""Device handler registry.
+
+To add a new device type:
+1. Create a new module in this directory (e.g. onecontrol.py)
+2. Implement a class that extends BleDeviceHandler
+3. Import and add it to DEVICE_HANDLERS below
+"""
+from .microair import MicroAirHandler
+
+# All registered device handlers — bridge iterates this for discovery matching
+DEVICE_HANDLERS = [
+    MicroAirHandler,
+]
