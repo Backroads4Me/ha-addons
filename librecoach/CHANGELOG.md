@@ -1,4 +1,4 @@
-## [1.1.4] - 2026-02-17
+## [1.1.5] - 2026-02-19
 
 **⚠️ Action Required:** The CAN-to-MQTT Bridge add-on is no onger required, it will be automatically disabled. You can safely uninstall it from **Settings → Apps**.
 
@@ -11,6 +11,10 @@
 
 - CAN bridge is now built into LibreCoach — the standalone CAN-to-MQTT Bridge add-on is no longer required
 - Fixed an issue with RV-C polling in a new installations
+
+### Fixed
+
+- Fixed takeover prompt appearing on fresh installs when watchdog restarts the add-on before Node-RED configuration completes
 
 ## [1.0.3] - 2026-02-15
 

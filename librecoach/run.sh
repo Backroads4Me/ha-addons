@@ -551,6 +551,11 @@ An existing Node-RED installation was detected. LibreCoach needs to replace your
   fi
 fi
 
+# Mark Node-RED as managed now, before configuration steps that may fail and trigger a watchdog
+# restart. Without this, a failed restart_addon call causes the next run to see Node-RED as
+# installed-but-unmanaged and incorrectly prompt for takeover permission.
+mark_nodered_managed
+
 # Configure Node-RED
 NR_INFO=$(api_call GET "/addons/$SLUG_NODERED/info")
 log_debug "NR_INFO response: $NR_INFO"
