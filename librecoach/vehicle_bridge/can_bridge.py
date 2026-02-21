@@ -26,6 +26,10 @@ class CanBridge:
         self._send_queue = None
         self._stopping = False
 
+        # PGN filter: skip these (pf, ps) pairs before MQTT publish
+        # (0xFE, 0xCA) = DGN 1FECA (DM-RV diagnostic messages)
+        self._filtered_pgns = {(0xFE, 0xCA)}
+
     def is_enabled(self):
         return bool(self.can_interface)
 
@@ -63,6 +67,11 @@ class CanBridge:
         log.info(
             "CAN bridge started on %s @ %s bps", self.can_interface, self.can_bitrate
         )
+        if self._filtered_pgns:
+            filtered = ", ".join(
+                f"1{pf:02X}{ps:02X}" for pf, ps in self._filtered_pgns
+            )
+            log.info("CAN DGN filter active — dropping: %s", filtered)
 
         self._read_task = asyncio.create_task(self._read_loop())
         self._write_task = asyncio.create_task(self._write_loop())
@@ -126,6 +135,12 @@ class CanBridge:
             try:
                 msg = await loop.run_in_executor(None, self._bus.recv, 1.0)
                 if msg is None:
+                    continue
+
+                # Drop filtered DGNs before MQTT publish
+                pf = (msg.arbitration_id >> 16) & 0xFF
+                ps = (msg.arbitration_id >> 8) & 0xFF
+                if (pf, ps) in self._filtered_pgns:
                     continue
 
                 if msg.is_extended_id:
