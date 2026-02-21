@@ -1,3 +1,13 @@
+## [1.1.8] - 2026-02-20
+
+### Added
+
+- Victron write out capability
+
+### Fixed
+
+- Fixed integration hash check
+
 ## [1.1.7] - 2026-02-20
 
 ### Changed

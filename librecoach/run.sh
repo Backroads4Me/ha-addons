@@ -509,10 +509,10 @@ if [ "$MICROAIR_ENABLED" = "true" ]; then
     # Install/update integration files (only restart HA if code actually changed)
     NEEDS_HA_RESTART=false
 
-    BUNDLED_HASH=$(find "$INTEGRATION_SRC" -type f | sort | xargs md5sum 2>/dev/null | md5sum | awk '{print $1}')
+    BUNDLED_HASH=$(find "$INTEGRATION_SRC" -type f | sort | xargs md5sum 2>/dev/null | awk '{print $1}' | md5sum | awk '{print $1}')
 
     if [ -d "$INTEGRATION_DST" ]; then
-        INSTALLED_HASH=$(find "$INTEGRATION_DST" -type f | sort | xargs md5sum 2>/dev/null | md5sum | awk '{print $1}')
+        INSTALLED_HASH=$(find "$INTEGRATION_DST" -type f | sort | xargs md5sum 2>/dev/null | awk '{print $1}' | md5sum | awk '{print $1}')
 
         if [ "$BUNDLED_HASH" != "$INSTALLED_HASH" ]; then
             bashio::log.info "   Updating librecoach_ble integration..."
