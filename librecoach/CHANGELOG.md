@@ -1,5 +1,3 @@
-### LibreCoach Changelog
-
 ### 1.1.9 (Feb 21, 2026)
 
 - Refined Micro-Air integration
