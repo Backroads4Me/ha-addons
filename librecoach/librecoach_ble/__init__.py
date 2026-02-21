@@ -23,6 +23,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     if not conf.get("microair_enabled"):
         _LOGGER.info("LibreCoach BLE: MicroAir disabled in add-on config")
+        # Clear locked device address so it rediscovers on re-enable
+        if conf.get("locked_devices"):
+            conf.pop("locked_devices", None)
+            try:
+                Path(CONFIG_PATH).write_text(json.dumps(conf))
+                _LOGGER.info("Cleared locked device addresses")
+            except Exception as exc:
+                _LOGGER.debug("Failed to clear locked devices: %s", exc)
         return True
 
     manager = BleBridgeManager(hass, conf)

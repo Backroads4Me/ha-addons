@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 
+from bleak import BleakError
 from bleak_retry_connector import establish_connection, BleakClientWithServiceCache
 from homeassistant.components import mqtt
 from homeassistant.components.bluetooth import (
@@ -13,25 +14,58 @@ from homeassistant.components.bluetooth import (
 )
 from homeassistant.core import HomeAssistant
 
-from .const import TOPIC_STATE, TOPIC_SET, TOPIC_AVAILABLE, TOPIC_BRIDGE
+from .const import TOPIC_STATE, TOPIC_SET, TOPIC_AVAILABLE, TOPIC_BRIDGE, CONFIG_PATH
 from .devices import DEVICE_HANDLERS
 
 _LOGGER = logging.getLogger(__name__)
 
 class BleBridgeManager:
-    """Manages discovered BLE devices, their poll loops, and MQTT communication."""
+    """Manages discovered BLE devices with persistent connections and serialized operations."""
 
     def __init__(self, hass: HomeAssistant, config: dict):
         self.hass = hass
         self.config = config
-        self._active_devices = {}   # address -> {"handler": ..., "task": ...}
+        self._active_devices = {}   # address -> device entry dict
         self._cancel_callbacks = []
         self._stopping = False
+        self._locked_devices = self._load_locked_devices()  # device_type -> address
+
+    def _load_locked_devices(self) -> dict:
+        """Load previously locked device addresses from config file."""
+        try:
+            import os
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    locked = data.get("locked_devices", {})
+                    if locked:
+                        _LOGGER.info("Loaded locked devices: %s", locked)
+                    return locked
+        except Exception as exc:
+            _LOGGER.warning("Failed to load locked devices: %s", exc)
+        return {}
+
+    def _save_locked_device(self, device_type: str, address: str):
+        """Save a locked device address to config file."""
+        self._locked_devices[device_type] = address
+        try:
+            import os
+            data = {}
+            if os.path.exists(CONFIG_PATH):
+                with open(CONFIG_PATH, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            data["locked_devices"] = self._locked_devices
+            with open(CONFIG_PATH, "w", encoding="utf-8") as f:
+                json.dump(data, f)
+            _LOGGER.info(
+                "Locked %s device address: %s", device_type, address
+            )
+        except Exception as exc:
+            _LOGGER.warning("Failed to save locked device: %s", exc)
 
     async def start(self):
         """Register BLE advertisement callbacks for all device handlers."""
         for handler_class in DEVICE_HANDLERS:
-            # Register a callback for each handler's BLE name pattern
             cancel = async_register_callback(
                 self.hass,
                 self._on_ble_advertisement,
@@ -43,7 +77,6 @@ class BleBridgeManager:
             self._cancel_callbacks.append(cancel)
 
         # Subscribe to MQTT command topics
-        # Uses wildcard: librecoach/ble/+/+/set
         await mqtt.async_subscribe(
             self.hass,
             "librecoach/ble/+/+/set",
@@ -52,7 +85,7 @@ class BleBridgeManager:
         )
 
     async def stop(self):
-        """Cancel all poll loops and callbacks."""
+        """Cancel all poll loops, disconnect all devices, and unregister callbacks."""
         self._stopping = True
         for cancel in self._cancel_callbacks:
             cancel()
@@ -62,6 +95,9 @@ class BleBridgeManager:
                 await entry["task"]
             except asyncio.CancelledError:
                 pass
+            await self._disconnect(address)
+
+    # --- Device Discovery ---
 
     def _on_ble_advertisement(
         self,
@@ -73,13 +109,22 @@ class BleBridgeManager:
         address = service_info.address.lower()
 
         if address in self._active_devices:
-            # Update stored BLE device reference (keeps it fresh for next poll)
             self._active_devices[address]["ble_device"] = service_info.device
             return
 
-        # Find matching handler
         for handler_class in DEVICE_HANDLERS:
             if handler_class.match_name(name):
+                device_type = handler_class.device_type()
+
+                # If we have a locked address for this device type, skip others
+                locked_addr = self._locked_devices.get(device_type)
+                if locked_addr and locked_addr != address:
+                    _LOGGER.debug(
+                        "Ignoring %s device %s (locked to %s)",
+                        device_type, address, locked_addr,
+                    )
+                    return
+
                 _LOGGER.info(
                     "Discovered %s device: %s (%s)",
                     handler_class.device_type(), address, name,
@@ -92,25 +137,94 @@ class BleBridgeManager:
                     "handler": handler,
                     "task": task,
                     "ble_device": service_info.device,
+                    "client": None,
+                    "lock": asyncio.Lock(),
+                    "authenticated": False,
                 }
                 return
 
+    # --- Connection Management ---
+
     def _get_ble_device(self, address: str):
         """Get BLE device, trying HA's cache first then falling back to stored ref."""
-        # Try HA's Bluetooth manager first (picks best adapter/proxy)
         ble_device = async_ble_device_from_address(
             self.hass, address, connectable=True
         )
         if ble_device:
             return ble_device
 
-        # Fall back to device reference from last advertisement
         entry = self._active_devices.get(address)
         if entry and entry.get("ble_device"):
             _LOGGER.debug("Using stored BLE device for %s", address)
             return entry["ble_device"]
 
         return None
+
+    async def _ensure_connected(self, address: str):
+        """Ensure we have a connected, authenticated client. Returns the client."""
+        entry = self._active_devices[address]
+
+        # Reuse existing connection if still valid
+        if entry["client"] and entry["client"].is_connected:
+            return entry["client"]
+
+        # Need new connection
+        ble_device = self._get_ble_device(address)
+        if not ble_device:
+            raise Exception(f"BLE device {address} not available")
+
+        _LOGGER.debug("Establishing connection to %s", address)
+        client = await establish_connection(
+            BleakClientWithServiceCache,
+            ble_device,
+            address,
+            timeout=20.0,
+        )
+
+        # Authenticate
+        handler = entry["handler"]
+        await handler.authenticate(client)
+        entry["client"] = client
+        entry["authenticated"] = True
+        _LOGGER.debug("Connected and authenticated to %s", address)
+        return client
+
+    async def _disconnect(self, address: str):
+        """Safely disconnect and clear connection state."""
+        entry = self._active_devices.get(address)
+        if not entry:
+            return
+
+        client = entry.get("client")
+        if client:
+            try:
+                if client.is_connected:
+                    await client.disconnect()
+            except (BleakError, OSError) as exc:
+                _LOGGER.debug("Error during disconnect for %s: %s", address, exc)
+
+        entry["client"] = None
+        entry["authenticated"] = False
+
+    async def _execute_with_lock(self, address: str, operation):
+        """Acquire lock, ensure connection, run operation. Retry once on BLE error."""
+        entry = self._active_devices[address]
+        async with entry["lock"]:
+            for attempt in range(2):  # 1 try + 1 retry
+                try:
+                    client = await self._ensure_connected(address)
+                    return await operation(client)
+                except (BleakError, OSError, asyncio.TimeoutError) as exc:
+                    if attempt == 0:
+                        _LOGGER.debug(
+                            "BLE operation failed for %s, retrying: %s",
+                            address, exc,
+                        )
+                        await self._disconnect(address)
+                    else:
+                        raise
+
+    # --- Poll Loop ---
 
     async def _poll_loop(self, handler, address: str):
         """Poll a device at regular intervals, publish state to MQTT."""
@@ -120,36 +234,21 @@ class BleBridgeManager:
 
         while not self._stopping:
             try:
-                ble_device = self._get_ble_device(address)
-                if not ble_device:
-                    raise Exception(f"BLE device {address} not available")
+                async def _do_poll(client):
+                    return await handler.poll(client)
 
-                # Connect via Bleak (routed through best proxy)
-                client = await establish_connection(
-                    BleakClientWithServiceCache,
-                    ble_device,
-                    address,
-                    timeout=20.0,
-                )
-
-                try:
-                    parsed = await handler.poll(client)
-                finally:
-                    await client.disconnect()
+                parsed = await self._execute_with_lock(address, _do_poll)
 
                 if not parsed:
                     raise Exception("No status response")
 
-                # Publish each zone state to MQTT
-                zones = parsed.get("zones", {})
-                for zone_num, zone_state in zones.items():
-                    zone_state["zone"] = zone_num
-                    topic = TOPIC_STATE.format(
-                        device_type=device_type, address=address
-                    )
-                    await mqtt.async_publish(
-                        self.hass, topic, json.dumps(zone_state), qos=1, retain=False
-                    )
+                # Publish state and config to MQTT
+                await self._publish_state(handler, address, parsed)
+
+                # Lock this address on first successful poll
+                device_type = handler.device_type()
+                if device_type not in self._locked_devices:
+                    self._save_locked_device(device_type, address)
 
                 # Mark online
                 failure_count = 0
@@ -180,7 +279,6 @@ class BleBridgeManager:
                         "%s poll failed for %s (count %d): %s",
                         device_type, address, failure_count, exc,
                     )
-                handler._authenticated = False  # Force re-auth on reconnect
 
                 if failure_count >= 10:
                     await mqtt.async_publish(
@@ -198,11 +296,13 @@ class BleBridgeManager:
                         "disconnected", qos=1, retain=True,
                     )
 
+            # Sleep OUTSIDE the lock so commands can execute between polls
             await asyncio.sleep(poll_interval)
+
+    # --- MQTT Command Handler ---
 
     async def _on_mqtt_command(self, msg):
         """Handle inbound MQTT commands on librecoach/ble/+/+/set."""
-        # Parse topic: librecoach/ble/{device_type}/{address}/set
         parts = msg.topic.split("/")
         if len(parts) < 5:
             return
@@ -222,21 +322,41 @@ class BleBridgeManager:
             return
 
         try:
-            ble_device = self._get_ble_device(address)
-            if not ble_device:
-                _LOGGER.warning("BLE device %s not available for command", address)
-                return
+            async def _do_command(client):
+                return await handler.handle_command(client, command)
 
-            client = await establish_connection(
-                BleakClientWithServiceCache,
-                ble_device,
-                address,
-                timeout=20.0,
-            )
-            try:
-                await handler.handle_command(client, command)
-            finally:
-                await client.disconnect()
+            result = await self._execute_with_lock(address, _do_command)
+
+            # Publish verified state if command returned parsed status
+            if isinstance(result, dict) and "zones" in result:
+                await self._publish_state(handler, address, result)
 
         except Exception as exc:
             _LOGGER.warning("Command failed for %s: %s", address, exc)
+
+    # --- MQTT Publishing ---
+
+    async def _publish_state(self, handler, address: str, parsed: dict):
+        """Publish zone state and config to MQTT."""
+        device_type = handler.device_type()
+        zones = parsed.get("zones", {})
+        zone_configs = parsed.get("zone_configs", {})
+
+        for zone_num, zone_state in zones.items():
+            zone_state["zone"] = zone_num
+            topic = TOPIC_STATE.format(
+                device_type=device_type, address=address
+            )
+            await mqtt.async_publish(
+                self.hass, topic, json.dumps(zone_state), qos=1, retain=False
+            )
+
+            # Publish zone config if available (retained for discovery)
+            int_zone = int(zone_num) if not isinstance(zone_num, int) else zone_num
+            if int_zone in zone_configs:
+                config_topic = f"librecoach/ble/{device_type}/{address}/zone/{zone_num}/config"
+                await mqtt.async_publish(
+                    self.hass, config_topic,
+                    json.dumps(zone_configs[int_zone]),
+                    qos=1, retain=True,
+                )

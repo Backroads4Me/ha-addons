@@ -25,7 +25,7 @@ HEAT_TYPE_REVERSE = {
     7: "Heat Strip", 12: "Electric Heat",
 }
 
-FAN_MODE_MAP = {0: "auto", 1: "low", 2: "high", 3: "medium", 128: "auto"}
+FAN_MODE_MAP = {0: "auto", 1: "low", 2: "high", 128: "auto"}
 
 
 class MicroAirHandler(BleDeviceHandler):
@@ -34,7 +34,6 @@ class MicroAirHandler(BleDeviceHandler):
         self.address = address
         self._password = (config.get("microair_password") or "").strip()
         self._email = (config.get("microair_email") or "").strip()
-        self._authenticated = False
         self._zone_configs = {}
 
     @staticmethod
@@ -55,19 +54,20 @@ class MicroAirHandler(BleDeviceHandler):
             return None
         return json.loads(bytes(result).decode("utf-8"))
 
-    async def poll(self, client) -> dict | None:
-        """Authenticate, send Get Status, read and parse response."""
-        # 1. Authenticate (password write to passwordCmd)
-        if self._password and not self._authenticated:
-            await client.write_gatt_char(
-                UUIDS["passwordCmd"],
-                self._password.encode("utf-8"),
-                response=True,
-            )
-            await asyncio.sleep(1.0)
-            self._authenticated = True
+    async def authenticate(self, client) -> bool:
+        """Authenticate with device. Called by bridge after connection."""
+        if not self._password:
+            return True
+        await client.write_gatt_char(
+            UUIDS["passwordCmd"],
+            self._password.encode("utf-8"),
+            response=True,
+        )
+        await asyncio.sleep(1.0)
+        return True
 
-        # 2. Request Status
+    async def poll(self, client) -> dict | None:
+        """Send Get Status, read and parse response."""
         raw = await self._request_json(client, {"Type": "Get Status"})
         if not raw:
             return None
@@ -100,19 +100,21 @@ class MicroAirHandler(BleDeviceHandler):
 
         return parsed
 
-    async def handle_command(self, client, command: dict) -> bool:
-        """Write a command dict to the device."""
-        if self._password and not self._authenticated:
-            await client.write_gatt_char(
-                UUIDS["passwordCmd"],
-                self._password.encode("utf-8"),
-                response=True,
-            )
-            await asyncio.sleep(1.0)
-            self._authenticated = True
-
+    async def handle_command(self, client, command: dict) -> dict | bool:
+        """Write a command dict to the device and read back verified status."""
         cmd_bytes = json.dumps(command).encode("utf-8")
         await client.write_gatt_char(UUIDS["jsonCmd"], cmd_bytes, response=True)
+
+        # Read back status for verification after Change commands
+        if command.get("Type") == "Change":
+            try:
+                await asyncio.sleep(0.3)
+                raw = await self._request_json(client, {"Type": "Get Status"})
+                if raw:
+                    return self.parse_status(raw)
+            except Exception as exc:
+                _LOGGER.debug("Post-command status read failed: %s", exc)
+
         return True
 
     def parse_status(self, status: dict) -> dict:
@@ -199,6 +201,7 @@ class MicroAirHandler(BleDeviceHandler):
         return {
             "available_zones": sorted(available_zones),
             "zones": zone_data,
+            "zone_configs": self._zone_configs,
         }
 
     def _select_fan_mode(self, zone_status):
