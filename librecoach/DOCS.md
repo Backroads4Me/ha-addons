@@ -1,92 +1,40 @@
 # LibreCoach Documentation
 
-## Concept: The "System" vs. The "Add-on"
+---
 
-It is important to distinguish between **LibreCoach (The System)** and this **Add-on**.
+## Settings UI (Sidebar)
 
-### 1. The LibreCoach System
+Most operational settings are managed in the **LibreCoach** sidebar panel — click the LibreCoach icon in the Home Assistant sidebar.
 
-This is the "App" and final product. It is a collection of services (Mosquitto, Node-RED, and the CAN Bridge) that run in the background to control your RV.
+| Setting                            | Description                                                                                  |
+| :--------------------------------- | :------------------------------------------------------------------------------------------- |
+| **Automated GPS Location Updates** | Syncs your Home Assistant location, timezone, and elevation from a GPS device tracker.       |
+| **Victron**                        | Enable or disable Victron GX device support. Enabled by default.                             |
+| **Micro-Air EasyTouch**            | Enable Bluetooth thermostat integration. Requires your Micro-Air account email and password. |
+| **Beta Testing**                   | Enables experimental features still in development.                                          |
 
-- **Status:** Always Running.
-- **Control:** Via Home Assistant Dashboards and highly customizable.
-- **Composition:** The unified system formed by the sum of all installed components.
+---
 
-### 2. This LibreCoach Add-on
+## Add-on Configuration Tab
 
-This is the "Orchestrator." It is a utility that ensures the System is installed and configured.
+> **Most users will not need to change these settings.**
 
-- **Status:** Runs continuously in the background.
-- **Function:** It installs missing components, updates Node-RED flows, and applies configurations. After completing its work, it stays running so that updates are applied automatically.
+These settings are found under **Settings → Add-ons → LibreCoach → Configuration**.
 
-> **Normal Behavior:** After starting, this add-on will perform its setup checks and then remain running in the background. The addon staying "running" is normal — the actual work is done by Mosquitto, Node-RED, and CAN Bridge. The addon stays alive so that HAOS can automatically restart it when updates are applied.
+| Option                                    | Description                                                                                                                                      |
+| :---------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Allow Node-RED Overwrite**              | Only used during first install. Must be enabled to allow LibreCoach to replace existing Node-RED flows. **This will delete your current flows.** |
+| **Preserve Node-RED Flow Customizations** | Preserves your customized Node-RED flows during add-on updates. System software and reference files still update normally.                       |
+| **Enable Debug Logging**                  | Enables verbose logging for troubleshooting. Leave off during normal use.                                                                        |
+| **CAN Interface**                         | The host network interface name for your CAN hardware.                                                                                           |
+| **MQTT User / Password**                  | Credentials used by the Vehicle Bridge and Node-RED to connect to Mosquitto.                                                                     |
 
-## Updating LibreCoach
+---
 
-Updates are applied automatically. When HAOS downloads a new version, it restarts the addon, which re-runs the orchestrator with the updated code. No manual action is required.
+## MQTT
 
-## Configuration
+LibreCoach automatically configures MQTT to ensure seamless communication between the Vehicle Bridge and Node-RED.
 
-### Main Settings
-
-| Option          | Type    | Default  | Description                                                                              |
-| :-------------- | :------ | :------- | :--------------------------------------------------------------------------------------- |
-| `can_interface` | String  | `can0`   | The host network interface name for your CAN hardware (e.g., `can0`, `vcan0`).           |
-| `can_bitrate`   | List    | `250000` | The speed of your RV-C network. Standard is 250k. Options: `125k`, `250k`, `500k`, `1M`. |
-| `debug_logging` | Boolean | `false`  | Enables verbose logging of API calls and setup steps. Use only for troubleshooting.      |
-
-### Safety Settings
-
-| Option                     | Type    | Default | Description                                                                                                                                                                             |
-| :------------------------- | :------ | :------ | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Allow Node-RED Overwrite` | Boolean | `false` | **DANGER:** Only used during first install. If Node-RED is already installed, this must be `true` to allow LibreCoach to delete your existing flows and install the LibreCoach system.  |
-| `Prevent Flow Updates`     | Boolean | `false` | **SAFETY:** If `true`, LibreCoach will never update your Node-RED flows when the add-on is updated. Use this if you have customized your flows and want to prevent them from being overwritten. |
-
-### Automated Settings
-
-LibreCoach automatically handles MQTT credentials to ensure seamless communication between the bridge and the automation flows.
-
-- **MQTT Topics**: Defaults to `can/raw`, `can/send`, and `can/status`.
-- **Authentication**: LibreCoach creates a dedicated `librecoach` user in Mosquitto automatically.
-
-## Hardware Setup
-
-LibreCoach requires a physical connection to your RV's CAN bus.
-
-1.  Install your CAN HAT/Adapter (e.g., Waveshare CAN HAT) on your Raspberry Pi.
-2.  Ensure the interface is active in the host OS (usually `can0`).
-3.  **Note:** The _CAN-MQTT Bridge_ add-on will fail to start if the hardware is missing, but the LibreCoach Orchestrator will still successfully deploy the rest of the software stack (useful for testing).
-
-## Troubleshooting
-
-### Protect Your Flows
- 
- If you have spent time customizing your LibreCoach flows and want to ensure a future update doesn't wipe them out:
- 
- 1.  Go to the **Configuration** tab.
- 2.  Toggle **Prevent Flow Updates** to `true`.
- 3.  Scroll down and click **Save**.
- 
- Future updates will still update the system software (CAN bridge, Python scripts), but your Node-RED flows will remain untouched.
- 
- ### "Installation aborted to protect existing flows"
- 
- **Reason:** You have Node-RED installed, and LibreCoach is refusing to delete your work.
- **Fix:**
- 
- 1.  Backup your existing flows if you want to keep them.
- 2.  Go to the **Configuration** tab.
- 3.  Toggle **Allow Node-RED Overwrite** to `true`.
- 4.  Scroll down and click 'Save'
-
-### Using Node-RED Independently
-
-If you wish to stop LibreCoach from managing Node-RED:
-
-1.  Uninstall the **LibreCoach** add-on.
-2.  Go to the **Node-RED** add-on configuration tab.
-3.  Just above the "Show unused optional configuration options' toggle you should see:
-
-    `bash /share/.librecoach/init-nodered.sh` &#x2716;
-
-4.  Click the &#x2716; to delete the entry and then click save.
+- A dedicated `librecoach` user is created in Mosquitto on first install.
+- Default credentials are pre-configured and can be changed in the Configuration tab if needed.
+- MQTT topics (`can/raw`, `can/send`, `can/status`) and CAN bitrate (250 kbps) are fixed.
