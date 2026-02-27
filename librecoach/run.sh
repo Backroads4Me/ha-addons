@@ -368,17 +368,25 @@ get_managed_preserve_mode() {
 # Ensure this addon starts on boot
 api_call POST "/addons/self/options" '{"boot":"auto","watchdog":true}' > /dev/null
 
-# Clean stale config keys from options.json that were removed in previous releases.
-# The Supervisor validates options at its own boot (before any addon starts), so these
-# warnings cannot be prevented on the FIRST boot after upgrade. This cleanup ensures
-# they don't recur on subsequent boots.
+# Clean stale config keys left in the Supervisor's internal option store from previous releases.
+# The Supervisor generates /data/options.json for the addon (stripping unknown keys), but keeps
+# stale keys in its own store and warns about them at every boot. The only way to remove them
+# is to overwrite the Supervisor's store via its API with a full replacement of the options.
+# POST /addons/self/options with {"options": {...}} does a full replace — any keys not included
+# are dropped from the store. Reading the current valid options from /data/options.json and
+# posting them back effectively purges the stale keys.
+SELF_OPTIONS=$(api_call GET "/addons/self/info" | jq -r '.data.options // empty')
 STALE_KEYS='["ble_scan_interval","mqtt_host","mqtt_port","mqtt_topic_raw","mqtt_topic_send","mqtt_topic_status"]'
-if [ -f /data/options.json ]; then
-  HAS_STALE=$(jq --argjson keys "$STALE_KEYS" '[.[$keys[]]] | map(select(. != null)) | length' /data/options.json 2>/dev/null)
+if [ -n "$SELF_OPTIONS" ]; then
+  HAS_STALE=$(echo "$SELF_OPTIONS" | jq --argjson keys "$STALE_KEYS" '[.[$keys[]]] | map(select(. != null)) | length')
   if [ "$HAS_STALE" -gt 0 ] 2>/dev/null; then
-    CLEANED=$(jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])' /data/options.json)
-    echo "$CLEANED" > /data/options.json
-    bashio::log.info "   Cleaned $HAS_STALE stale config keys from options.json"
+    CLEANED=$(echo "$SELF_OPTIONS" | jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])')
+    RESULT=$(api_call POST "/addons/self/options" "$(jq -n --argjson opts "$CLEANED" '{"options":$opts}')")
+    if echo "$RESULT" | jq -e '.result == "ok"' >/dev/null 2>&1; then
+      bashio::log.info "   Cleaned $HAS_STALE stale config keys from Supervisor store"
+    else
+      bashio::log.warning "   Failed to clean stale config keys: $RESULT"
+    fi
   fi
 fi
 
