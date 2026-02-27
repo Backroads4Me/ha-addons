@@ -18,6 +18,8 @@ RUN pip install --no-cache-dir --break-system-packages \
 # Bundle the Node-RED Project
 # Always pulls latest from main branch
 # Keep flows_cred.json — contains MQTT credentials encrypted with "librecoach" as credential_secret
+# BUILD_VERSION changes per release, busting Docker cache to ensure fresh clone
+ARG BUILD_VERSION=dev
 RUN git clone --depth 1 https://github.com/Backroads4Me/librecoach-node-red /opt/librecoach-project && \
     rm -rf /opt/librecoach-project/.git && \
     rm -f /opt/librecoach-project/.gitignore /opt/librecoach-project/.gitattributes

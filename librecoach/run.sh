@@ -641,6 +641,7 @@ bashio::log.info "Node-RED"
 
 CONFIRM_TAKEOVER=$(bashio::config 'confirm_nodered_takeover')
 NODERED_ALREADY_INSTALLED=false
+MIGRATION_DETECTED=false
 
 if is_installed "$SLUG_NODERED"; then
   bashio::log.info "   Node-RED is already installed."
@@ -674,6 +675,7 @@ if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
     if [[ "$nr_init_check" == *"librecoach"* ]]; then
       bashio::log.info "   Migrating: previous LibreCoach version detected (init_commands present). Creating state file."
       mark_nodered_managed "$(get_flows_hash)"
+      MIGRATION_DETECTED=true
     fi
   fi
 
@@ -785,9 +787,14 @@ else
   fi
 fi
 
-# Check if flows file has changed (requiring a restart to pick up)
+# Check if flows need updating (requiring a restart to pick up)
 if [ "$PREVENT_FLOW_UPDATES" != "true" ] && [ "$NEEDS_RESTART" = "false" ]; then
-  if [ -n "$PREVIOUS_FLOWS_HASH" ] && [ "$PREVIOUS_FLOWS_HASH" != "$FLOWS_HASH" ]; then
+  PREVIOUS_VERSION=$(get_managed_version)
+  if [ -n "$PREVIOUS_VERSION" ] && [ "$PREVIOUS_VERSION" != "$ADDON_VERSION" ]; then
+    # Version changed — always restart to ensure init script runs with latest bundled flows
+    bashio::log.info "   Add-on version changed ($PREVIOUS_VERSION → $ADDON_VERSION). Restarting Node-RED."
+    NEEDS_RESTART=true
+  elif [ -n "$PREVIOUS_FLOWS_HASH" ] && [ "$PREVIOUS_FLOWS_HASH" != "$FLOWS_HASH" ]; then
     log_debug "Flow hash changed from $PREVIOUS_FLOWS_HASH to $FLOWS_HASH"
     NEEDS_RESTART=true
   fi
@@ -814,6 +821,14 @@ if [ "$PREVIOUS_PRESERVE_MODE" = "true" ] && [ "$PREVENT_FLOW_UPDATES" != "true"
   fi
 
   bashio::log.info "   Restarting Node-RED to restore standard flows."
+  NEEDS_RESTART=true
+fi
+
+# Force restart on migration from a previous LibreCoach installation (e.g., beta → production).
+# The migration path creates the state file with the current hash, making the hash comparison
+# see no change. But Node-RED's flows may be stale, so we must restart to run the init script.
+if [ "$MIGRATION_DETECTED" = "true" ] && [ "$NEEDS_RESTART" = "false" ]; then
+  bashio::log.info "   Migration detected — restarting Node-RED to deploy bundled flows."
   NEEDS_RESTART=true
 fi
 
