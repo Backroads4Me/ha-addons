@@ -368,6 +368,18 @@ get_managed_preserve_mode() {
 # Ensure this addon starts on boot
 api_call POST "/addons/self/options" '{"boot":"auto","watchdog":true}' > /dev/null
 
+# Clean stale config keys from options.json that were removed in previous releases.
+# The Supervisor logs warnings for every key not in the schema.
+STALE_KEYS='["ble_scan_interval","mqtt_host","mqtt_port","mqtt_topic_raw","mqtt_topic_send","mqtt_topic_status"]'
+CURRENT_OPTIONS=$(jq '.' /data/options.json 2>/dev/null)
+if [ -n "$CURRENT_OPTIONS" ]; then
+  CLEANED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])')
+  if [ "$CLEANED_OPTIONS" != "$CURRENT_OPTIONS" ]; then
+    echo "$CLEANED_OPTIONS" > /data/options.json
+    bashio::log.info "   Removed stale config keys from options.json"
+  fi
+fi
+
 # ========================
 # Deployment
 # ========================
