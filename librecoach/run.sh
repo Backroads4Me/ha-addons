@@ -369,15 +369,16 @@ get_managed_preserve_mode() {
 api_call POST "/addons/self/options" '{"boot":"auto","watchdog":true}' > /dev/null
 
 # Clean stale config keys from options.json that were removed in previous releases.
-# The Supervisor validates options at its own startup (before the addon runs), so direct
-# file edits are too late. Use the Supervisor API to rewrite options without stale keys.
+# The Supervisor validates options at its own boot (before any addon starts), so these
+# warnings cannot be prevented on the FIRST boot after upgrade. This cleanup ensures
+# they don't recur on subsequent boots.
 STALE_KEYS='["ble_scan_interval","mqtt_host","mqtt_port","mqtt_topic_raw","mqtt_topic_send","mqtt_topic_status"]'
-CURRENT_OPTIONS=$(jq '.' /data/options.json 2>/dev/null)
-if [ -n "$CURRENT_OPTIONS" ]; then
-  CLEANED_OPTIONS=$(echo "$CURRENT_OPTIONS" | jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])')
-  if [ "$CLEANED_OPTIONS" != "$CURRENT_OPTIONS" ]; then
-    api_call POST "/addons/self/options" "{\"options\":$CLEANED_OPTIONS}" > /dev/null
-    bashio::log.info "   Removed stale config keys via Supervisor API (warnings clear on next restart)"
+if [ -f /data/options.json ]; then
+  HAS_STALE=$(jq --argjson keys "$STALE_KEYS" '[.[$keys[]]] | map(select(. != null)) | length' /data/options.json 2>/dev/null)
+  if [ "$HAS_STALE" -gt 0 ] 2>/dev/null; then
+    CLEANED=$(jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])' /data/options.json)
+    echo "$CLEANED" > /data/options.json
+    bashio::log.info "   Cleaned $HAS_STALE stale config keys from options.json"
   fi
 fi
 
