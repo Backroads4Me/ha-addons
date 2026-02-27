@@ -118,18 +118,6 @@ async def _stop_bridge(hass: HomeAssistant):
         data["manager"] = None
         _LOGGER.info("BLE bridge stopped")
 
-    # Clear locked device addresses so it rediscovers on re-enable
-    conf = data.get("config", {})
-    if conf.get("locked_devices"):
-        conf.pop("locked_devices", None)
-        try:
-            def _write_cleared():
-                Path(CONFIG_PATH).write_text(json.dumps(conf))
-            await hass.async_add_executor_job(_write_cleared)
-            _LOGGER.info("Cleared locked device addresses")
-        except Exception as exc:
-            _LOGGER.debug("Failed to clear locked devices: %s", exc)
-
     # Remove entities and devices from HA registry
     try:
         from homeassistant.helpers import device_registry as dr
