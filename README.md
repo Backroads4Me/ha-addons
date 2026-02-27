@@ -24,6 +24,6 @@ To add this repository to your Home Assistant instance, click the button below:
 These addons are free and open source.  
 If they’ve helped you or saved you time, consider supporting continued development:
 
-[![GitHub stars](https://img.shields.io/github/stars/Backroads4Me/ha-addons?style=social)](https://github.com/Backroads4Me/ha-addons)
+[![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
 [![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)

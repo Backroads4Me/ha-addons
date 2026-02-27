@@ -2,7 +2,7 @@
 # Copyright 2025-2026 Ted Lanham
 # Licensed under the MIT License
 
-ARG BUILD_FROM=ghcr.io/home-assistant/armv7-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/armv7-addon-base:latest
 ARG BUILD_VERSION=0.0.0
 FROM ${BUILD_FROM}
 
@@ -27,10 +27,7 @@ RUN apk add --no-cache \
     procps \
     coreutils \
     jq \
-    s6-overlay \
-    python3 \
-    openssl \
-    ca-certificates
+    python3
 
 # Copy and make executable the run script
 COPY run.sh / 

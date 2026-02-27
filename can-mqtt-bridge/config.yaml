@@ -3,7 +3,7 @@
 # Add-on configuration file: config.yaml
 
 name: "CAN to MQTT Bridge"
-version: "1.0.4"
+version: "1.0.5"
 slug: "can-mqtt-bridge"
 description: "Initializes CAN interface and provides a bidirectional CAN-MQTT bridge"
 url: "https://github.com/Backroads4Me/ha-addons"
@@ -47,8 +47,6 @@ options:
   mqtt_topic_send: "can/send"
   mqtt_topic_status: "can/status"
   debug_logging: false
-  ssl: false
-  password: ""
 schema:
   can_interface: "str"
   can_bitrate: "list(125000|250000|500000|1000000)"
@@ -60,6 +58,4 @@ schema:
   mqtt_topic_send: "str"
   mqtt_topic_status: "str"
   debug_logging: "bool"
-  ssl: "bool"
-  password: "password?"
 image: ghcr.io/backroads4me/{arch}-can-mqtt-bridge

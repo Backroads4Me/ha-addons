@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
-* text=auto eol=lf
+* text=auto
+
+# Force LF line endings for files that run inside Linux containers
+*.sh text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+Dockerfile* text eol=lf
+**/rootfs/** text eol=lf

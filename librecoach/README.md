@@ -11,8 +11,8 @@ To make setup easy, LibreCoach is delivered as a **Home Assistant Add-on**.
 
 ## Features
 
-- **System Orchestrator**: One-click setup. The add-on automatically installs and configures the official Mosquitto Broker, CAN-to-MQTT Bridge, and Node-RED.
-- **Hardware Bridge**: Connects directly to your CAN hardware (e.g., Waveshare HAT) and bridges RV-C network traffic to Home Assistant.
+- **System Orchestrator**: One-click setup. The add-on automatically installs and configures the official Mosquitto Broker and Node-RED.
+- **Hardware Bridge**: Connects directly to your CAN hardware (e.g., Waveshare HAT) and bridges RV-C network traffic to Home Assistant natively.
 - **Project Bundler**: Deploys pre-configured LibreCoach automation flows to instantly interpret your RV's data.
 
 ## Requirements
@@ -34,7 +34,7 @@ Find **LibreCoach** in the store and click **Install**, then **Start**.
 **The add-on will perform the following "Orchestration" steps:**
 
 1.  Check for **Mosquitto** and install/configure it if missing.
-2.  Check for **CAN-to-MQTT Bridge** and install/configure it.
+2.  Start the internal **RV-C and Location Tracking Bridges**.
 3.  Check for **Node-RED** and install/configure it.
 4.  **Deploy** the LibreCoach automation flows.
 
@@ -44,11 +44,13 @@ If you already use Node-RED, LibreCoach will **PAUSE** to protect your work.
 To proceed, you must go to the **Configuration** tab and enable `Allow Node-RED Overwrite`.
 _See the [Documentation](https://github.com/backroads4me/ha-addons/blob/main/librecoach/DOCS.md) for full details._
 
+## Advanced: Decoding Unknown Devices
+
+Have an unsupported RV device? LibreCoach includes a built-in RV-C bus recording tool to help you reverse-engineer its protocol and expand your system. Read the **[Decoding Unknown Devices](https://librecoach.com/advanced-setup/decoding-unknowns/)** guide.
+
 ## Support
 
-For full configuration options, troubleshooting, and guides, please visit:
-
-- **Official Site:** [LibreCoach.com](https://librecoach.com)
+For full configuration options, troubleshooting, and guides, please visit: [LibreCoach.com](https://librecoach.com)
 
 ---
 
@@ -66,17 +68,11 @@ Contributions to the LibreCoach add-on require signing the CLA. See [CONTRIBUTIN
 
 ---
 
-## Acknowledgements
-
-The Micro-Air EasyTouch Bluetooth integration was built with BLE protocol reference from the work of:
-
-- [k3vmcd](https://github.com/k3vmcd) — [ha-micro-air-easytouch](https://github.com/k3vmcd/ha-micro-air-easytouch)
-- [mlefevre](https://github.com/mlefevre) — [ha_EasyTouchRV_MicroAir_MZ](https://github.com/mlefevre/ha_EasyTouchRV_MicroAir_MZ)
-
 ## Support LibreCoach
 
-LibreCoach is free and open source. If you find it useful, please consider supporting the project:
+LibreCoach is free and open source.
+If it's useful to you, you can support its development in either of these ways:
 
-[![GitHub stars](https://img.shields.io/github/stars/Backroads4Me/ha-addons?style=social)](https://github.com/Backroads4Me/ha-addons)
+[![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
 [![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)

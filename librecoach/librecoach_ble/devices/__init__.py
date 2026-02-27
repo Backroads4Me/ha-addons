@@ -1,7 +1,7 @@
 """Device handler registry.
 
 To add a new device type:
-1. Create a new module in this directory (e.g. onecontrol.py)
+1. Create a new module in this directory
 2. Implement a class that extends BleDeviceHandler
 3. Import and add it to DEVICE_HANDLERS below
 """

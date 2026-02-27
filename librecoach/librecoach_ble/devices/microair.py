@@ -74,7 +74,7 @@ class MicroAirHandler(BleDeviceHandler):
 
         parsed = self.parse_status(raw)
 
-        # 3. Check for new zones and fetch their config (run once per newly discovered zone)
+        # Check for new zones and fetch their config (run once per newly discovered zone)
         if "zones" in parsed:
             found_zones = []
             for z in parsed["zones"].keys():

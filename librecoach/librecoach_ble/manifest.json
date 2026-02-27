@@ -6,7 +6,8 @@
     ],
     "dependencies": [
         "bluetooth",
-        "mqtt"
+        "mqtt",
+        "hassio"
     ],
     "documentation": "https://librecoach.com",
     "integration_type": "hub",

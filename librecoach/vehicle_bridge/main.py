@@ -5,11 +5,7 @@ import signal
 
 from mqtt_client import MqttClient
 from can_bridge import CanBridge
-# from onecontrol_bridge import OneControlBridge
-
-# NOTE: TrumaBridge (LIN serial) is on hold — not yet implemented.
-# When ready, add: from truma_bridge import TrumaBridge
-
+from geo_bridge import GeoBridge
 
 def _load_config():
     with open("/data/options.json", "r", encoding="utf-8") as f:
@@ -34,8 +30,7 @@ async def main():
 
     modules = [
         CanBridge(config, mqtt),
-        # OneControlBridge(config, mqtt),
-        # TrumaBridge(config, mqtt),  # On hold
+        GeoBridge(config, mqtt),
     ]
 
     active = []

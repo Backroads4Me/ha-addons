@@ -23,12 +23,13 @@ SLUG_NODERED="a0d7b954_nodered"
 STATE_FILE="/data/.librecoach-state.json"
 ADDON_VERSION=$(bashio::addon.version)
 
-# Config values used by orchestrator
+# Config values used by orchestrator (from config.yaml)
 MQTT_USER=$(bashio::config 'mqtt_user')
 MQTT_PASS=$(bashio::config 'mqtt_pass')
 DEBUG_LOGGING=$(bashio::config 'debug_logging')
 VICTRON_ENABLED=$(bashio::config 'victron_enabled')
 BETA_ENABLED=$(bashio::config 'beta_enabled')
+MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
 
 # ======================== 
 # Orchestrator Helpers
@@ -48,30 +49,47 @@ api_call() {
   log_debug "API Call: $method $endpoint"
   if [ -n "$data" ]; then
     log_debug "API Data: $data"
-    local response=$(curl -s -X "$method" -H "$AUTH_HEADER" -H "Content-Type: application/json" -d "$data" "$SUPERVISOR$endpoint")
+    local response=$(curl -s --connect-timeout 5 -m 30 -X "$method" -H "$AUTH_HEADER" -H "Content-Type: application/json" -d "$data" "$SUPERVISOR$endpoint")
   else
-    local response=$(curl -s -X "$method" -H "$AUTH_HEADER" "$SUPERVISOR$endpoint")
+    local response=$(curl -s --connect-timeout 5 -m 30 -X "$method" -H "$AUTH_HEADER" "$SUPERVISOR$endpoint")
   fi
 
   echo "$response"
 }
 
 check_mqtt_integration() {
-  bashio::log.info "Checking for MQTT integration..."
+  bashio::log.info "   Checking for MQTT integration..."
 
-  local response
-  response=$(api_call GET "/core/api/components")
+  # Wait up to 10 minutes for HA Core to fully boot (120 retries * 5s)
+  # HA Core can take several minutes to start on standard hardware after a host reboot.
+  local retries=120
+  local logged_wait=false
 
-  if [ -z "$response" ]; then
-    bashio::log.warning "   ⚠️  Unable to query Home Assistant Core API"
-    return 1
-  fi
+  while [ $retries -gt 0 ]; do
+    local response
+    response=$(api_call GET "/core/api/components")
 
-  if echo "$response" | jq -e 'index("mqtt")' >/dev/null 2>&1; then
-    return 0
-  else
-    return 1
-  fi
+    if [ -n "$response" ] && ! echo "$response" | grep -q -E "502|Bad Gateway|Gateway|Error" >/dev/null 2>&1; then
+      # Only valid JSON array expected here. If it's valid JSON and contains "mqtt", we're good.
+      if echo "$response" | jq -e 'if type == "array" then index("mqtt") else false end' >/dev/null 2>&1; then
+        if [ "$logged_wait" = "true" ]; then
+          bashio::log.info "   MQTT integration found"
+        fi
+        return 0
+      fi
+    fi
+
+    if [ "$logged_wait" = "false" ]; then
+      bashio::log.info "   Home Assistant is still starting. Waiting for MQTT component..."
+      logged_wait=true
+    fi
+
+    sleep 5
+    ((retries--))
+  done
+
+  bashio::log.warning "   ⚠️  Timed out waiting for Home Assistant to start"
+  return 1
 }
 
 send_notification() {
@@ -131,7 +149,7 @@ is_running() {
 
 install_addon() {
   local slug=$1
-  bashio::log.info "   > Installing $slug..."
+  bashio::log.info "   Installing $slug"
   local result
   result=$(api_call POST "/store/addons/$slug/install")
   if echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
@@ -159,7 +177,7 @@ install_addon() {
 
 start_addon() {
   local slug=$1
-  bashio::log.info "   > Starting $slug..."
+  bashio::log.info "   Starting $slug"
   local result
   result=$(api_call POST "/addons/$slug/start")
 
@@ -183,7 +201,7 @@ start_addon() {
 set_options() {
   local slug=$1
   local json=$2
-  bashio::log.info "   > Configuring $slug..."
+  bashio::log.info "   Configuring $slug"
   log_debug "Configuration JSON: $json"
   local result
   result=$(api_call POST "/addons/$slug/options" "{\"options\": $json}")
@@ -197,7 +215,7 @@ set_options() {
 
 restart_addon() {
   local slug=$1
-  bashio::log.info "   > Restarting $slug..."
+  #bashio::log.info "   Restarting $slug"
   local result
   result=$(api_call POST "/addons/$slug/restart")
 
@@ -221,7 +239,6 @@ restart_addon() {
 
 set_boot_auto() {
   local slug=$1
-  bashio::log.info "   > Setting $slug to start on boot with watchdog..."
   local result
   result=$(api_call POST "/addons/$slug/options" '{"boot":"auto","watchdog":true}')
   if echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
@@ -238,7 +255,7 @@ wait_for_mqtt() {
   local user=$3
   local pass=$4
 
-  bashio::log.info "   > Waiting for MQTT broker at $host:$port..."
+  bashio::log.info "   Waiting for MQTT broker at $host:$port"
 
   local auth_args=""
   [ -n "$user" ] && auth_args="$auth_args -u $user"
@@ -259,7 +276,7 @@ wait_for_mqtt() {
 }
 
 wait_for_nodered_api() {
-  bashio::log.info "   > Waiting for Node-RED API to be ready..."
+  bashio::log.info "   Waiting for Node-RED API to be ready"
   
   local host="a0d7b954-nodered"
   local port=1880
@@ -272,7 +289,7 @@ wait_for_nodered_api() {
     # Check if the port is open, without requiring auth yet.
     # A 401 error will still return 0 here, which is what we want.
     if curl -sS -m 3 "$url" >/dev/null 2>&1; then
-      bashio::log.info "   Node-RED API port is open. Waiting for auth to initialize..."
+      bashio::log.info "   Node-RED API port is open. Waiting for auth to initialize"
       # Give Node-RED a moment to initialize the user auth system
       sleep 5
       return 0
@@ -300,11 +317,16 @@ is_nodered_managed() {
 }
 
 mark_nodered_managed() {
+  local current_hash=$1
+  [ -z "$current_hash" ] && current_hash=$(get_flows_hash)
+
   mkdir -p /data
   cat > "$STATE_FILE" <<EOF
 {
   "nodered_managed": true,
   "version": "$ADDON_VERSION",
+  "flows_hash": "$current_hash",
+  "prevent_flow_updates": $PREVENT_FLOW_UPDATES,
   "last_update": "$(date -Iseconds)"
 }
 EOF
@@ -319,22 +341,46 @@ get_managed_version() {
   jq -r '.version // ""' "$STATE_FILE"
 }
 
-# Ensure this addon starts on boot (upgrades from older versions may have boot: manual)
+get_flows_hash() {
+  if [ -f "/opt/librecoach-project/flows.json" ]; then
+    md5sum "/opt/librecoach-project/flows.json" | cut -d' ' -f1
+  else
+    echo "unknown"
+  fi
+}
+
+get_managed_hash() {
+  if [ ! -f "$STATE_FILE" ]; then
+    echo ""
+    return
+  fi
+  jq -r '.flows_hash // ""' "$STATE_FILE"
+}
+
+get_managed_preserve_mode() {
+  if [ ! -f "$STATE_FILE" ]; then
+    echo ""
+    return
+  fi
+  jq -r '.prevent_flow_updates // ""' "$STATE_FILE"
+}
+
+# Ensure this addon starts on boot
 api_call POST "/addons/self/options" '{"boot":"auto","watchdog":true}' > /dev/null
 
 # ========================
-# Phase 0: Deployment
+# Deployment
 # ========================
-bashio::log.info "Phase 0: Deploying Files"
+bashio::log.info "Deploying Files"
 
 # Ensure directory exists
 mkdir -p "$PROJECT_PATH"
 
 # Always deploy/update project files from bundled version
 if [ "$(ls -A $PROJECT_PATH)" ]; then
-    bashio::log.info "   Updating project files from bundled version..."
+    bashio::log.info "   Updating project files from bundled version"
 else
-    bashio::log.info "   Deploying bundled project to $PROJECT_PATH..."
+    bashio::log.info "   Deploying bundled project to $PROJECT_PATH"
 fi
 
 # Deploy project files
@@ -347,18 +393,23 @@ if [ "$PREVENT_FLOW_UPDATES" = "true" ]; then
     bashio::log.info "   ✅ Flow updates PREVENTED. Using preserve-mode init script."
     cp "$PROJECT_PATH/init-nodered-preserve.sh" "$PROJECT_PATH/init-nodered.sh"
 else
-    bashio::log.info "   Flow updates ALLOWED. Using standard init script."
+    bashio::log.info "   Flow updates allowed. Using standard init script."
     cp "$PROJECT_PATH/init-nodered-overwrite.sh" "$PROJECT_PATH/init-nodered.sh"
 fi
+
+# Inject the addon slug for the suicide check
+OWNER_SLUG=$(api_call GET "/addons/self/info" | jq -r '.data.slug // empty')
+sed -i "s/REPLACE_ME/$OWNER_SLUG/g" "$PROJECT_PATH/init-nodered.sh"
+
 # Ensure permissions are open (Node-RED runs as non-root)
 chmod -R 755 "$PROJECT_PATH"
 bashio::log.info "   Project files deployed"
 
 
 # ========================
-# Phase 1: Mosquitto MQTT Broker
+# Mosquitto MQTT Broker
 # ========================
-bashio::log.info "Phase 1: Mosquitto MQTT Broker"
+bashio::log.info "Mosquitto MQTT Broker"
 
 if is_installed "$SLUG_MOSQUITTO"; then
   # Mosquitto is installed, ensure it's running
@@ -368,16 +419,17 @@ if is_installed "$SLUG_MOSQUITTO"; then
   fi
 else
   # Mosquitto is NOT installed. Install it.
-  bashio::log.info "   Mosquitto not found. Installing..."
+  bashio::log.info "   Mosquitto not found. Installing"
   install_addon "$SLUG_MOSQUITTO" || exit 1
   start_addon "$SLUG_MOSQUITTO" || exit 1
 fi
 
 # Ensure Mosquitto starts on boot
+  bashio::log.info "   Setting Mosquitto to start on boot with watchdog"
 set_boot_auto "$SLUG_MOSQUITTO" || bashio::log.warning "   ⚠️  Could not set Mosquitto to auto-start"
 
 # Ensure librecoach MQTT user exists in Mosquitto
-bashio::log.info "   Ensuring '$MQTT_USER' user exists in Mosquitto..."
+bashio::log.info "   Ensuring '$MQTT_USER' user exists in Mosquitto"
 MQTT_HOST="core-mosquitto"
 MQTT_PORT=1883
 
@@ -392,12 +444,22 @@ if [ -z "$NEW_MOSQUITTO_OPTIONS" ] || [ "$NEW_MOSQUITTO_OPTIONS" == "null" ]; th
     exit 1
 fi
 
-api_call POST "/addons/$SLUG_MOSQUITTO/options" "{\"options\": $NEW_MOSQUITTO_OPTIONS}" > /dev/null
-bashio::log.info "   Configured Mosquitto user: $MQTT_USER"
-
-# Restart Mosquitto to apply config and trigger MQTT integration discovery
-if is_running "$SLUG_MOSQUITTO"; then
-  restart_addon "$SLUG_MOSQUITTO" || exit 1
+# Only update config and restart if the librecoach user/password changed
+if [ "$NEW_MOSQUITTO_OPTIONS" != "$MOSQUITTO_OPTIONS" ]; then
+  api_call POST "/addons/$SLUG_MOSQUITTO/options" "{\"options\": $NEW_MOSQUITTO_OPTIONS}" > /dev/null
+  bashio::log.info "   Configured Mosquitto user: $MQTT_USER"
+  if is_running "$SLUG_MOSQUITTO"; then
+    bashio::log.info "   Restarting Mosquitto to apply new configuration"
+    restart_addon "$SLUG_MOSQUITTO" || exit 1
+  fi
+else
+  bashio::log.info "   Mosquitto user already configured"
+  # Ensure Mosquitto is running (may not be after a reboot)
+  if ! is_running "$SLUG_MOSQUITTO"; then
+    start_addon "$SLUG_MOSQUITTO" || exit 1
+  else
+    bashio::log.info "   $SLUG_MOSQUITTO is running"
+  fi
 fi
 
 # Verify MQTT is responding with configured credentials
@@ -432,7 +494,7 @@ if ! check_mqtt_integration; then
 _See LibreCoach addon logs for more details_" \
     "librecoach_mqtt_setup"
 
-  # Also log to addon logs for those who check
+  # Also log to addon logs
   bashio::log.error ""
   bashio::log.error "╔════════════════════════════════════════════════════════════╗"
   bashio::log.error "║   ⚠️  MQTT INTEGRATION REQUIRED  ⚠️                        ║"
@@ -463,7 +525,7 @@ bashio::log.info "   MQTT integration is configured"
 # Legacy cleanup: disable old CAN-MQTT Bridge add-on if present
 SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
 if is_installed "$SLUG_CAN_BRIDGE"; then
-    bashio::log.info "Migrating from standalone CAN-MQTT Bridge..."
+    bashio::log.info "Migrating from standalone CAN-MQTT Bridge"
     is_running "$SLUG_CAN_BRIDGE" && api_call POST "/addons/$SLUG_CAN_BRIDGE/stop" "" >/dev/null 2>&1
     api_call POST "/addons/$SLUG_CAN_BRIDGE/options" '{"boot":"manual","watchdog":false}' >/dev/null 2>&1
     bashio::log.info "CAN-MQTT Bridge disabled. The vehicle_bridge now handles CAN."
@@ -472,109 +534,110 @@ fi
 
 # Publish config toggles as retained MQTT messages for Node-RED
 mqtt_pub() { mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$MQTT_PASS" -r -q 1 "$@"; }
-MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
 mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
 mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
 mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
-bashio::log.info "   Published config toggles to MQTT (victron=$VICTRON_ENABLED, beta=$BETA_ENABLED, microair=$MICROAIR_ENABLED)"
+bashio::log.info "   Published config toggles to MQTT"
 
 # ========================
-# Phase 1.5: LibreCoach BLE Integration
+# LibreCoach BLE Integration
 # ========================
-MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
 
-if [ "$MICROAIR_ENABLED" = "true" ]; then
-    bashio::log.info "Phase 1.5: LibreCoach BLE Integration"
+bashio::log.info "Bluetooth Integration"
 
-    INTEGRATION_SRC="/opt/librecoach_ble"
-    INTEGRATION_DST="/config/custom_components/librecoach_ble"
+INTEGRATION_SRC="/opt/librecoach_ble"
+INTEGRATION_DST="/config/custom_components/librecoach_ble"
 
-    # Write config file for the integration to read at runtime
-    MICROAIR_PASSWORD=$(bashio::config 'microair_password')
-    MICROAIR_EMAIL=$(bashio::config 'microair_email')
-    BLE_SCAN_INTERVAL=$(bashio::config 'ble_scan_interval')
+# Write config file for the integration to read at runtime.
+# Always written regardless of toggle — the integration handles enable/disable dynamically via MQTT.
+MICROAIR_PASSWORD=$(bashio::config 'microair_password')
+MICROAIR_EMAIL=$(bashio::config 'microair_email')
 
-    jq -n \
-        --argjson enabled true \
-        --arg password "$MICROAIR_PASSWORD" \
-        --arg email "$MICROAIR_EMAIL" \
-        --argjson scan_interval "${BLE_SCAN_INTERVAL:-30}" \
-        '{
-            microair_enabled: $enabled,
-            microair_password: $password,
-            microair_email: $email,
-            ble_scan_interval: $scan_interval
-        }' > /config/.librecoach-ble-config.json
+jq -n \
+    --argjson enabled "$MICROAIR_ENABLED" \
+    --arg password "$MICROAIR_PASSWORD" \
+    --arg email "$MICROAIR_EMAIL" \
+    --arg slug "$OWNER_SLUG" \
+    '{
+        microair_enabled: $enabled,
+        microair_password: $password,
+        microair_email: $email,
+        addon_slug: $slug
+    }' > /config/.librecoach-ble-config.json
 
-    # Install/update integration files (only restart HA if code actually changed)
-    NEEDS_HA_RESTART=false
+# Install/update integration files (only restart if code actually changed)
+NEEDS_HA_RESTART=false
 
-    BUNDLED_HASH=$(find "$INTEGRATION_SRC" -type f | sort | xargs md5sum 2>/dev/null | awk '{print $1}' | md5sum | awk '{print $1}')
+# Define a hash function that ignores HA runtime files (.translations) and OS hidden files
+get_integration_hash() {
+    local dir=$1
+    # Only hash explicit extension types and ignore all hidden paths or pycache
+    (cd "$dir" && find . -type f \( -name "*.py" -o -name "*.json" -o -name "*.png" \) \
+        -not -path "*/__pycache__/*" -not -path "*/.*" -exec md5sum {} + | sort -k 2 | md5sum | cut -d' ' -f1)
+}
 
-    if [ -d "$INTEGRATION_DST" ]; then
-        INSTALLED_HASH=$(find "$INTEGRATION_DST" -type f | sort | xargs md5sum 2>/dev/null | awk '{print $1}' | md5sum | awk '{print $1}')
+BUNDLED_HASH=$(get_integration_hash "$INTEGRATION_SRC")
 
-        if [ "$BUNDLED_HASH" != "$INSTALLED_HASH" ]; then
-            bashio::log.info "   Updating librecoach_ble integration..."
-            rm -rf "$INTEGRATION_DST"
-            cp -r "$INTEGRATION_SRC" "$INTEGRATION_DST"
-            NEEDS_HA_RESTART=true
-        else
-            bashio::log.info "   librecoach_ble is up to date"
-        fi
-    else
-        bashio::log.info "   Installing librecoach_ble integration..."
-        mkdir -p /config/custom_components
+if [ -d "$INTEGRATION_DST" ]; then
+    INSTALLED_HASH=$(get_integration_hash "$INTEGRATION_DST")
+
+    if [ "$BUNDLED_HASH" != "$INSTALLED_HASH" ]; then
+        bashio::log.info "   Updating librecoach_ble integration"
+        log_debug "BLE hash mismatch (Bundled: $BUNDLED_HASH, Installed: $INSTALLED_HASH)"
+        rm -rf "$INTEGRATION_DST"
         cp -r "$INTEGRATION_SRC" "$INTEGRATION_DST"
         NEEDS_HA_RESTART=true
+    else
+        bashio::log.info "   librecoach_ble is up to date"
+        log_debug "BLE hashes match: $INSTALLED_HASH"
     fi
-
-    # Add to configuration.yaml if not present
-    if ! grep -q "librecoach_ble:" /config/configuration.yaml 2>/dev/null; then
-        bashio::log.info "   Adding librecoach_ble to configuration.yaml..."
-        echo -e "\nlibrecoach_ble:" >> /config/configuration.yaml
-        NEEDS_HA_RESTART=true
-    fi
-
-    if [ "$NEEDS_HA_RESTART" = "true" ]; then
-        bashio::log.info "   Restarting Home Assistant Core to load integration..."
-        api_call POST "/core/restart" >/dev/null 2>&1
-
-        # Wait for HA to come back (up to 3 minutes)
-        bashio::log.info "   Waiting for Home Assistant to restart..."
-        retries=90
-        while [ $retries -gt 0 ]; do
-            if api_call GET "/core/api/" 2>/dev/null | grep -q "API running"; then
-                bashio::log.info "   Home Assistant is back online"
-                break
-            fi
-            sleep 2
-            ((retries--))
-        done
-
-        if [ $retries -eq 0 ]; then
-            bashio::log.warning "   ⚠️  HA restart taking longer than expected"
-            bashio::log.warning "   BLE integration will load after HA finishes"
-        fi
-    fi
-
-    bashio::log.info "   LibreCoach BLE integration ready"
 else
-    bashio::log.info "Phase 1.5: MicroAir disabled, skipping BLE integration"
+    bashio::log.info "   Installing librecoach_ble integration"
+    mkdir -p /config/custom_components
+    cp -r "$INTEGRATION_SRC" "$INTEGRATION_DST"
+    NEEDS_HA_RESTART=true
+fi
 
-    # Clean up if previously installed but now disabled
-    if [ -d "/config/custom_components/librecoach_ble" ]; then
-        bashio::log.info "   Removing librecoach_ble integration..."
-        rm -rf "/config/custom_components/librecoach_ble"
-        sed -i '/^librecoach_ble:/d' /config/configuration.yaml 2>/dev/null
-        rm -f /config/.librecoach-ble-config.json
+# Add to configuration.yaml if not present
+if ! grep -q "librecoach_ble:" /config/configuration.yaml 2>/dev/null; then
+    bashio::log.info "   Adding librecoach_ble to configuration.yaml"
+    echo -e "\nlibrecoach_ble:" >> /config/configuration.yaml
+    NEEDS_HA_RESTART=true
+fi
+
+if [ "$NEEDS_HA_RESTART" = "true" ]; then
+    bashio::log.warning "   ⚠️  LibreCoach Bluetooth Integration state changed"
+    bashio::log.warning "   ⚠️  Restarting Home Assistant Core to apply changes"
+    bashio::log.warning "   ⚠️  It is normal to briefly lose connection to Home Assistant."
+    bashio::log.warning "   ⚠️  Please wait a few minutes and refresh your browser if necessary."
+
+    api_call POST "/core/restart" >/dev/null 2>&1
+
+    # Wait for HA to come back (10s initial delay + up to ~2 min polling)
+    bashio::log.info "   Waiting for Home Assistant to finish restarting"
+    sleep 10
+    retries=30
+    while [ $retries -gt 0 ]; do
+        if curl -s --connect-timeout 3 -m 5 -H "$AUTH_HEADER" "$SUPERVISOR/core/api/" 2>/dev/null | grep -q "API running"; then
+            bashio::log.info "   Home Assistant is back online"
+            break
+        fi
+        sleep 3
+        ((retries--))
+    done
+
+    if [ $retries -eq 0 ]; then
+        bashio::log.warning "   ⚠️  HA restart taking longer than expected"
+        bashio::log.warning "   BLE integration will load after HA finishes"
     fi
 fi
 
+bashio::log.info "   LibreCoach Bluetooth integration ready"
+
 # ========================
-# Phase 2: Node-RED
+# Node-RED
 # ========================
-bashio::log.info "Phase 2: Node-RED"
+bashio::log.info "Node-RED"
 
 CONFIRM_TAKEOVER=$(bashio::config 'confirm_nodered_takeover')
 NODERED_ALREADY_INSTALLED=false
@@ -584,7 +647,7 @@ if is_installed "$SLUG_NODERED"; then
   NODERED_ALREADY_INSTALLED=true
 else
   # Try to install Node-RED
-  bashio::log.info "   Node-RED not found. Installing..."
+  bashio::log.info "   Node-RED not found. Installing"
   if ! install_addon "$SLUG_NODERED"; then
     # Installation failed - check if it's because it's already installed
     nr_check=$(api_call GET "/addons/$SLUG_NODERED/info")
@@ -603,6 +666,17 @@ fi
 # If Node-RED was already installed, check if we need takeover permission
 # Skip takeover check if already managed by LibreCoach
 if [ "$NODERED_ALREADY_INSTALLED" = "true" ]; then
+  # Migration: if state file doesn't exist but Node-RED's init_commands already
+  # point to LibreCoach, a previous version was managing it. Auto-create state file
+  # so upgrades don't re-prompt for takeover permission.
+  if ! is_nodered_managed; then
+    nr_init_check=$(api_call GET "/addons/$SLUG_NODERED/info" | jq -r '.data.options.init_commands[0] // empty')
+    if [[ "$nr_init_check" == *"librecoach"* ]]; then
+      bashio::log.info "   Migrating: previous LibreCoach version detected (init_commands present). Creating state file."
+      mark_nodered_managed "$(get_flows_hash)"
+    fi
+  fi
+
   if is_nodered_managed; then
     MANAGED_VERSION=$(get_managed_version)
     bashio::log.info "   Node-RED already managed by LibreCoach (version $MANAGED_VERSION)"
@@ -646,20 +720,27 @@ An existing Node-RED installation was detected. LibreCoach needs to replace your
   fi
 fi
 
+# Save previous state before marking managed (needed for flow update detection later)
+PREVIOUS_FLOWS_HASH=$(get_managed_hash)
+PREVIOUS_PRESERVE_MODE=$(get_managed_preserve_mode)
+FLOWS_HASH=$(get_flows_hash)
+
 # Mark Node-RED as managed now, before configuration steps that may fail and trigger a watchdog
 # restart. Without this, a failed restart_addon call causes the next run to see Node-RED as
 # installed-but-unmanaged and incorrectly prompt for takeover permission.
-mark_nodered_managed
+mark_nodered_managed "$FLOWS_HASH"
 
 # Configure Node-RED
 NR_INFO=$(api_call GET "/addons/$SLUG_NODERED/info")
-log_debug "NR_INFO response: $NR_INFO"
+log_debug "Node-RED Info API called."
 NR_OPTIONS=$(echo "$NR_INFO" | jq '.data.options // {}')
-log_debug "NR_OPTIONS extracted: $NR_OPTIONS"
 EXISTING_SECRET=$(echo "$NR_OPTIONS" | jq -r '.credential_secret // empty')
+log_debug "Existing credentials secret extracted."
 
-# Init command runs the script deployed to /share/.librecoach/
-# The script copies flows.json and flows_cred.json (credentials encrypted with "librecoach")
+# Because Home Assistant add-ons cannot mount volumes during installation, LibreCoach
+# deploys its project files to `/share/.librecoach`. We then inject a bash script into
+# Node-RED's `init_commands` array. When Node-RED boots, it runs this script to copy
+# the project files from the `/share` drive into its own protected `/config` volume.
 SETTINGS_INIT_CMD="bash /share/.librecoach/init-nodered.sh"
 
 # LibreCoach requires credential_secret to be "librecoach" for flows_cred.json decryption
@@ -676,7 +757,7 @@ if [ -n "$EXISTING_SECRET" ] && [ "$EXISTING_SECRET" != "$LIBRECOACH_SECRET" ]; 
 fi
 
 if [ -z "$EXISTING_SECRET" ] || [ "$EXISTING_SECRET" != "$LIBRECOACH_SECRET" ]; then
-  bashio::log.info "   Setting credential_secret to 'librecoach' for flows_cred.json compatibility..."
+  bashio::log.info "   Setting credential_secret to 'librecoach' for flows_cred.json compatibility"
   NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
     --arg secret "$LIBRECOACH_SECRET" \
     --arg initcmd "$SETTINGS_INIT_CMD" \
@@ -689,7 +770,11 @@ else
 
   # Check if config needs updating (init command changed or users auth still present)
   if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ] || [ "$HAS_USERS" = "true" ]; then
-    bashio::log.info "   > Updating Node-RED configuration (init commands)..."
+    if [ -z "$CURRENT_INIT_CMD" ]; then
+      bashio::log.warning "   ⚠️  Node-RED init command is missing. Restoring."
+    else
+      bashio::log.info "   Updating Node-RED configuration (init commands)"
+    fi
     NEW_OPTIONS=$(echo "$NR_OPTIONS" | jq \
       --arg initcmd "$SETTINGS_INIT_CMD" \
       '. + {"init_commands": [$initcmd]} | del(.users)')
@@ -700,19 +785,51 @@ else
   fi
 fi
 
+# Check if flows file has changed (requiring a restart to pick up)
+if [ "$PREVENT_FLOW_UPDATES" != "true" ] && [ "$NEEDS_RESTART" = "false" ]; then
+  if [ -n "$PREVIOUS_FLOWS_HASH" ] && [ "$PREVIOUS_FLOWS_HASH" != "$FLOWS_HASH" ]; then
+    log_debug "Flow hash changed from $PREVIOUS_FLOWS_HASH to $FLOWS_HASH"
+    NEEDS_RESTART=true
+  fi
+fi
+
+# Detect preserve-mode transition: if preserve was previously enabled and is now disabled,
+# run the full Node-RED verification — ensure the init command is present, using the correct
+# (overwrite) init script, and restart Node-RED to replace preserved flows with bundled flows.
+if [ "$PREVIOUS_PRESERVE_MODE" = "true" ] && [ "$PREVENT_FLOW_UPDATES" != "true" ]; then
+  bashio::log.info "   Flow preservation was disabled. Verifying Node-RED configuration."
+
+  # Re-check init command — user may have removed it while in preserve mode
+  CURRENT_INIT_CMD=$(api_call GET "/addons/$SLUG_NODERED/info" | jq -r '.data.options.init_commands[0] // empty')
+  if [ "$CURRENT_INIT_CMD" != "$SETTINGS_INIT_CMD" ]; then
+    bashio::log.warning "   ⚠️  Node-RED init command is missing. Restoring."
+    # Re-read live options to avoid stale data from earlier set_options call
+    NR_OPTIONS_LIVE=$(api_call GET "/addons/$SLUG_NODERED/info" | jq '.data.options // {}')
+    NEW_OPTIONS=$(echo "$NR_OPTIONS_LIVE" | jq \
+      --arg initcmd "$SETTINGS_INIT_CMD" \
+      '. + {"init_commands": [$initcmd]} | del(.users)')
+    set_options "$SLUG_NODERED" "$NEW_OPTIONS" || exit 1
+  else
+    bashio::log.info "   Node-RED init command verified"
+  fi
+
+  bashio::log.info "   Restarting Node-RED to restore standard flows."
+  NEEDS_RESTART=true
+fi
+
 # Ensure Node-RED starts/restarts to apply init commands
 if [ "$NEEDS_RESTART" = "true" ]; then
   if is_running "$SLUG_NODERED"; then
-    bashio::log.info "   > Restarting Node-RED to apply new configuration..."
+    bashio::log.info "   Restarting Node-RED to apply new configuration"
     restart_addon "$SLUG_NODERED" || exit 1
   else
-    bashio::log.info "   > Starting Node-RED with new configuration..."
+    bashio::log.info "   Starting Node-RED with new configuration"
     start_addon "$SLUG_NODERED" || exit 1
     
     # Force a restart after fresh start to fix race condition:
     # On first boot, Node-RED's initialization may interfere with init_commands.
     # A restart ensures init_commands run cleanly on an initialized volume.
-    bashio::log.info "   > Performing initialization restart to ensure init_commands take effect..."
+    bashio::log.info "   Performing initialization restart to ensure init_commands take effect"
     sleep 5
     restart_addon "$SLUG_NODERED" || exit 1
   fi
@@ -724,30 +841,39 @@ fi
 
 # Wait for Node-RED to be available before proceeding.
 # Flows are loaded automatically by Node-RED on startup via init_commands — no API deploy needed.
-if ! wait_for_nodered_api; then
+if wait_for_nodered_api; then
+    # Re-publish config toggles now that Node-RED is online.
+    # The initial publish (retained) may be missed if the broker cycled during startup.
+    mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
+    mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
+    mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
+    bashio::log.info "   Re-published config toggles to MQTT"
+else
     bashio::log.warning "   ⚠️  Node-RED API did not respond. It may still be starting."
 fi
 
 # Ensure Node-RED starts on boot
+  bashio::log.info "   Setting Node-RED to start on boot with watchdog"
 set_boot_auto "$SLUG_NODERED" || bashio::log.warning "   ⚠️  Could not set Node-RED to auto-start"
 
 # Mark/update Node-RED as managed by LibreCoach (updates version on upgrades)
-mark_nodered_managed
+mark_nodered_managed "$FLOWS_HASH"
 
 # ========================
 # Installation Summary
 # ========================
+# ========================
 bashio::log.info "╔════════════════════════════════════════════════════════════╗"
-bashio::log.info "║          LibreCoach Installation Summary                  ║"
+bashio::log.info "║           LibreCoach Installation Summary                  ║"
 bashio::log.info "╠════════════════════════════════════════════════════════════╣"
-bashio::log.info "║  MQTT Integration ................ Configured             ║"
-bashio::log.info "║  Mosquitto MQTT Broker ........... Running                ║"
-bashio::log.info "║  Vehicle Bridge .................. Managed by s6          ║"
-bashio::log.info "║  Node-RED ........................ Configured             ║"
+bashio::log.info "║  MQTT Integration ................ Configured              ║"
+bashio::log.info "║  Mosquitto MQTT Broker ........... Running                 ║"
+bashio::log.info "║  Node-RED ........................ Running                 ║"
+bashio::log.info "║  RV-C Bridge ..................... Starting                ║"
+bashio::log.info "║  Bluetooth server ................ Starting                ║"
 bashio::log.info "╠════════════════════════════════════════════════════════════╣"
-bashio::log.info "║  All components installed successfully!                   ║"
-bashio::log.info "║  See the Overview Dashboard for new LibreCoach entities   ║"
-bashio::log.info "║  Visit https://LibreCoach.com for more information        ║"
+bashio::log.info "║  All components installed successfully!                    ║"
+bashio::log.info "║  Visit https://LibreCoach.com for more information         ║"
 bashio::log.info "╚════════════════════════════════════════════════════════════╝"
 
 } # end run_orchestrator

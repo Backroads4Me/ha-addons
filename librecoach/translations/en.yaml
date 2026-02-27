@@ -1,52 +1,52 @@
 configuration:
-  victron_enabled:
-    name: "Enable Victron Integration"
-    description: "Enables integration with Victron Energy systems via MQTT. Requires a GX device with MQTT enabled. See the full online documentation for more details."
+  geo_enabled:
+    name: "Enable Automated Location Updates"
+    description: "Updates Home Assistant's location, timezone, and elevation based on device_tracker data."
+  geo_device_tracker_primary:
+    name: "Primary Device Tracker"
+    description: "Entity ID of the primary device tracker for location (e.g., device_tracker.phone). Note: The tracker MUST provide GPS coordinates to work."
+  geo_device_tracker_secondary:
+    name: "Secondary Device Tracker (Fallback)"
+    description: "Entity ID of a fallback device tracker used when the primary is unavailable. Note: The tracker MUST provide GPS coordinates to work."
+  geo_update_threshold:
+    name: "Update Threshold (miles)"
+    description: "Minimum distance in miles the RV must move before updating location data. Range: 1-500."
   microair_enabled:
     name: "Enable Micro-Air EasyTouch Thermostat Integration"
-    description: "Enables support for Micro-Air EasyTouch RV thermostats via Bluetooth."
+    description: "Connects to thermostats via Bluetooth."
   microair_email:
     name: "Micro-Air Account Email"
-    description: "Email address used for your Micro-Air EasyTouch account (required if password is set)."
+    description: "Email address used for your Micro-Air EasyTouch account."
   microair_password:
     name: "Micro-Air Account Password"
-    description: "Password for your Micro-Air EasyTouch account (required for some devices)."
+    description: "Password for your Micro-Air EasyTouch account."
+  victron_enabled:
+    name: "Enable Victron Energy Integration"
+    description: "Requires a GX device with MQTT enabled."
   beta_enabled:
-    name: "Enable Beta Testing"
-    description: "Enables experimental beta features. Use at your own risk."
-  debug_logging:
-    name: "Enable Debug Logging"
-    description: "Enables detailed debug logging for troubleshooting."
+    name: "Enable Beta Features"
+    description: "Enables experimental features when available. Use at your own risk."
   confirm_nodered_takeover:
     name: "Allow Node-RED Overwrite (Initial install config only)"
     description: "Allows LibreCoach to overwrite your existing Node-RED flows. WARNING: This will delete your current flows!"
   prevent_flow_updates:
-    name: "Prevent Flow Updates (Referenced at every update)"
+    name: "Preserve Node-RED Flow Customizations (Referenced at update and restart)"
     description: "Enable this to PRESERVE your customized flows during add-on updates. Core files (decoders, etc.) will still be updated, but flows.json will not be touched."
+  debug_logging:
+    name: "Enable Debug Logging"
+    description: "Enables detailed debug logging for troubleshooting."
   mqtt_host:
     name: "MQTT Broker Host"
-    description: "Hostname or IP address of the MQTT broker (defaults to core-mosquitto)."
+    description: "Hostname or IP address of the MQTT broker."
   mqtt_port:
     name: "MQTT Broker Port"
-    description: "Port number for the MQTT broker (defaults to 1883)."
+    description: "Port number for the MQTT broker."
   mqtt_user:
     name: "MQTT User"
     description: "Username for MQTT authentication."
   mqtt_pass:
     name: "MQTT Password"
     description: "Password for MQTT authentication."
-  mqtt_topic_raw:
-    name: "CAN Raw Topic"
-    description: "MQTT topic for publishing raw CAN frames."
-  mqtt_topic_send:
-    name: "CAN Send Topic"
-    description: "MQTT topic for sending CAN frames."
-  mqtt_topic_status:
-    name: "CAN Status Topic"
-    description: "MQTT topic for publishing CAN interface status."
   can_interface:
     name: "CAN Interface"
-    description: "System interface name for the CAN adapter (e.g., can0)."
-  can_bitrate:
-    name: "CAN Bitrate"
-    description: "Bitrate for the CAN bus connection."
+    description: "System interface name for the CAN adapter."

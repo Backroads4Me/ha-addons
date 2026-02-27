@@ -49,20 +49,6 @@ MQTT_TOPIC_RAW=$(bashio::config 'mqtt_topic_raw')
 MQTT_TOPIC_SEND=$(bashio::config 'mqtt_topic_send')
 MQTT_TOPIC_STATUS=$(bashio::config 'mqtt_topic_status')
 DEBUG_LOGGING=$(bashio::config 'debug_logging')
-SSL=$(bashio::config 'ssl')
-PASSWORD=$(bashio::config 'password')
-
-# Security settings
-MQTT_SSL_ARGS=""
-if [ "$SSL" = "true" ]; then
-    MQTT_SSL_ARGS="--cafile /etc/ssl/certs/ca-certificates.crt --tls-version tlsv1.2"
-    bashio::log.info "SSL enabled for MQTT connections"
-fi
-
-# Password protection
-if [ -n "$PASSWORD" ]; then
-    bashio::log.info "Password protection enabled"
-fi
 
 # Global process tracking
 CAN_TO_MQTT_PID=""

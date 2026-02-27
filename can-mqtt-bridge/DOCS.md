@@ -45,8 +45,6 @@ The add-on has minimal configuration options:
 | `mqtt_topic_send`   | `can/send`       | Topic to send CAN frames                                                                                           |
 | `mqtt_topic_status` | `can/status`     | Topic for bridge status                                                                                            |
 | `debug_logging`     | `false`          | Enable verbose debug logging                                                                                       |
-| `ssl`               | `false`          | Enable SSL/TLS for MQTT connections                                                                                |
-| `password`          | ``               | Web interface password protection                                                                                  |
 
 ### MQTT Credentials Setup
 

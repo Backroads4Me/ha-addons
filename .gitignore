@@ -59,3 +59,9 @@ temp/
 Thumbs.db
 .Spotlight-V100
 .Trashes
+
+# LibreCoach Local Dev
+REVIEW-*.md
+*PLAN*.md
+*.json.bak
+options.json

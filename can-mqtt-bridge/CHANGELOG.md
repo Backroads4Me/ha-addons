@@ -1,3 +1,11 @@
+## [1.0.5] - 2026-02-26
+
+### Changed
+
+- Fixed base image to use addon-base instead of base
+- Removed unused SSL and password config options
+- Removed redundant packages from Docker image
+
 ## [1.0.3] - 2026-01-22
 
 ### Changed

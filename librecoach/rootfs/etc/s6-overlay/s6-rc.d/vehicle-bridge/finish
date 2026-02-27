@@ -3,11 +3,11 @@
 MQTT_USER=$(bashio::config 'mqtt_user')
 MQTT_PASS=$(bashio::config 'mqtt_pass')
 
-mosquitto_pub -h "172.30.32.1" -p 1883 \
+mosquitto_pub -h "core-mosquitto" -p 1883 \
   -u "$MQTT_USER" -P "$MQTT_PASS" \
   -t "librecoach/bridge/status" -m "offline" -r -q 1 2>/dev/null || true
 
-mosquitto_pub -h "172.30.32.1" -p 1883 \
+mosquitto_pub -h "core-mosquitto" -p 1883 \
   -u "$MQTT_USER" -P "$MQTT_PASS" \
   -t "can/status" -m "offline" -r -q 1 2>/dev/null || true
 

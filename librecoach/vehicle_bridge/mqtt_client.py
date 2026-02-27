@@ -31,8 +31,8 @@ class MqttClient:
         self.client.on_connect = self._on_connect
         self.client.on_disconnect = self._on_disconnect
 
-        self._host = config.get("mqtt_host", "core-mosquitto")
-        self._port = int(config.get("mqtt_port", 1883))
+        self._host = "core-mosquitto"
+        self._port = 1883
 
     async def connect(self):
         self._loop = asyncio.get_running_loop()

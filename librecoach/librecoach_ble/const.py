@@ -1,5 +1,6 @@
 DOMAIN = "librecoach_ble"
 CONFIG_PATH = "/config/.librecoach-ble-config.json"
+BLE_POLL_INTERVAL = 30  # seconds between BLE device polls
 
 # Base MQTT topic prefix — device handlers build on this
 MQTT_BASE = "librecoach/ble"

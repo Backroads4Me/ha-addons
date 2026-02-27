@@ -7,6 +7,12 @@ import can
 
 log = logging.getLogger("vehicle_bridge.can")
 
+# Fixed CAN/MQTT values for RV-C
+CAN_BITRATE = "250000"
+TOPIC_RAW = "can/raw"
+TOPIC_SEND = "can/send"
+TOPIC_STATUS = "can/status"
+
 
 class CanBridge:
     def __init__(self, config, mqtt):
@@ -15,10 +21,10 @@ class CanBridge:
         self.name = "can"
 
         self.can_interface = config.get("can_interface", "can0")
-        self.can_bitrate = str(config.get("can_bitrate", "250000"))
-        self.topic_raw = config.get("mqtt_topic_raw", "can/raw")
-        self.topic_send = config.get("mqtt_topic_send", "can/send")
-        self.topic_status = config.get("mqtt_topic_status", "can/status")
+        self.can_bitrate = CAN_BITRATE
+        self.topic_raw = TOPIC_RAW
+        self.topic_send = TOPIC_SEND
+        self.topic_status = TOPIC_STATUS
 
         self._bus = None
         self._read_task = None
@@ -42,7 +48,7 @@ class CanBridge:
             self.mqtt.publish(self.topic_status, "no_interface", retain=True)
             return
 
-        # Initialize CAN interface (ported from can-mqtt-bridge run.sh)
+        # Initialize CAN interface
         try:
             await loop.run_in_executor(None, self._setup_interface)
         except Exception as exc:
@@ -71,7 +77,7 @@ class CanBridge:
             filtered = ", ".join(
                 f"1{pf:02X}{ps:02X}" for pf, ps in self._filtered_pgns
             )
-            log.info("CAN DGN filter active — dropping: %s", filtered)
+
 
         self._read_task = asyncio.create_task(self._read_loop())
         self._write_task = asyncio.create_task(self._write_loop())

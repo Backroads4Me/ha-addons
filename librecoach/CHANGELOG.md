@@ -1,3 +1,14 @@
+### 1.2.0 (Feb 26, 2026)
+
+- Added GeoBridge for automatic home location tracking
+- Added MQTT-driven BLE lifecycle (no HA restart needed for enable/disable)
+- Added autonomous cleanup (Suicide Pattern) for uninstall scenarios
+- Added weekly scheduled Docker rebuild for base image security patches
+- Fixed base image mismatch (addon-base instead of base)
+- Fixed preserve-mode transition when toggling prevent_flow_updates
+- Removed mqtt_host, mqtt_port, mqtt_topic, and can_bitrate config options
+- Removed host_dbus dependency (BLE now uses HA integration)
+
 ### 1.1.10 (Feb 21, 2026)
 
 - Refined Micro-Air integration

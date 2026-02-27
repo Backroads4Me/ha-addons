@@ -4,8 +4,6 @@ permissions:
   contents: read
   packages: write
 
-env: {}
-
 on:
   push:
     branches:
@@ -14,6 +12,8 @@ on:
     branches:
       - main
   workflow_dispatch:
+  schedule:
+    - cron: "0 3 * * 0"
 
 jobs:
   init:
@@ -36,9 +36,10 @@ jobs:
 
           echo "Event type: ${{ github.event_name }}"
 
-          # Manual trigger builds all
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "Manual trigger - building all addons"
+          # Manual trigger and scheduled builds build all
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
+             [[ "${{ github.event_name }}" == "schedule" ]]; then
+            echo "Manual/scheduled trigger - building all addons"
             build_all=true
           fi
 
@@ -127,7 +128,7 @@ jobs:
         if: steps.info.outputs.supported == 'true'
         run: |
           # Default build from
-          build_from="ghcr.io/home-assistant/${{ matrix.arch }}-base:latest"
+          build_from="ghcr.io/home-assistant/${{ matrix.arch }}-addon-base:latest"
 
           # Check for build.yaml and extract build_from if it exists
           if [[ -f "${{ matrix.addon }}/build.yaml" ]]; then
@@ -169,7 +170,7 @@ jobs:
 
       - name: Pull base image
         if: steps.info.outputs.supported == 'true'
-        run: docker pull ghcr.io/home-assistant/${{ matrix.arch }}-base:latest
+        run: docker pull ${{ steps.build_args.outputs.build_from }}
 
       - name: Build and push addon
         if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
