@@ -1,3 +1,7 @@
+### 1.2.8 (Mar 1, 2026)
+
+- Performance tuning
+
 ### 1.2.7 (Feb 28, 2026)
 
 **⚠️ Check your tank names ⚠️** Black and gray tank labels were previoulsy swapped in some installations and now corrected.

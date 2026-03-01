@@ -23,6 +23,20 @@ SLUG_NODERED="a0d7b954_nodered"
 STATE_FILE="/data/.librecoach-state.json"
 ADDON_VERSION=$(bashio::addon.version)
 
+# Wait for /data/options.json to exist before reading config.
+# The Supervisor writes this before container start, so this should never wait —
+# but guards against edge cases on very first boot or slow Supervisor initialization.
+_opts_wait=0
+while [ ! -f /data/options.json ]; do
+  if [ $_opts_wait -ge 10 ]; then
+    bashio::log.warning "   ⚠️  /data/options.json not found after 10s — config may use defaults"
+    break
+  fi
+  bashio::log.info "   Waiting for /data/options.json..."
+  sleep 1
+  _opts_wait=$((_opts_wait + 1))
+done
+
 # Config values used by orchestrator (from config.yaml)
 MQTT_USER=$(bashio::config 'mqtt_user')
 MQTT_PASS=$(bashio::config 'mqtt_pass')
@@ -380,7 +394,10 @@ STALE_KEYS='["ble_scan_interval","mqtt_host","mqtt_port","mqtt_topic_raw","mqtt_
 if [ -n "$SELF_OPTIONS" ]; then
   HAS_STALE=$(echo "$SELF_OPTIONS" | jq --argjson keys "$STALE_KEYS" '[.[$keys[]]] | map(select(. != null)) | length')
   if [ "$HAS_STALE" -gt 0 ] 2>/dev/null; then
-    CLEANED=$(echo "$SELF_OPTIONS" | jq --argjson keys "$STALE_KEYS" 'delpaths([$keys[] | [.]])')
+    # Use /data/options.json as the POST source — it's the authoritative merged file generated
+    # at startup and already strips unknown schema keys. Using the API response risks posting
+    # schema defaults back, silently overwriting user-set values like prevent_flow_updates.
+    CLEANED=$(cat /data/options.json)
     RESULT=$(api_call POST "/addons/self/options" "$(jq -n --argjson opts "$CLEANED" '{"options":$opts}')")
     if echo "$RESULT" | jq -e '.result == "ok"' >/dev/null 2>&1; then
       bashio::log.info "   Cleaned $HAS_STALE stale config keys from Supervisor store"
@@ -410,6 +427,7 @@ rsync -a --delete "$BUNDLED_PROJECT/" "$PROJECT_PATH/"
 
 # Select the appropriate init script based on configuration
 PREVENT_FLOW_UPDATES=$(bashio::config 'prevent_flow_updates')
+bashio::log.info "   Preserve flow updates: $PREVENT_FLOW_UPDATES"
 
 if [ "$PREVENT_FLOW_UPDATES" = "true" ]; then
     bashio::log.info "   ✅ Flow updates PREVENTED. Using preserve-mode init script."
@@ -857,9 +875,13 @@ fi
 # Force restart on migration from a previous LibreCoach installation (e.g., beta → production).
 # The migration path creates the state file with the current hash, making the hash comparison
 # see no change. But Node-RED's flows may be stale, so we must restart to run the init script.
-if [ "$MIGRATION_DETECTED" = "true" ] && [ "$NEEDS_RESTART" = "false" ]; then
-  bashio::log.info "   Migration detected — restarting Node-RED to deploy bundled flows."
-  NEEDS_RESTART=true
+# Skip forced restart if preserve mode is on — flows should not be replaced, and data files
+# are already deployed to /share/.librecoach via rsync above.
+if [ "$MIGRATION_DETECTED" = "true" ] && [ "$NEEDS_RESTART" = "false" ] && [ "$PREVENT_FLOW_UPDATES" != "true" ]; then
+    bashio::log.info "   Migration detected — restarting Node-RED to deploy bundled flows."
+    NEEDS_RESTART=true
+elif [ "$MIGRATION_DETECTED" = "true" ] && [ "$PREVENT_FLOW_UPDATES" = "true" ]; then
+    bashio::log.info "   Migration detected — skipping Node-RED restart (preserve mode active)."
 fi
 
 # Ensure Node-RED starts/restarts to apply init commands
