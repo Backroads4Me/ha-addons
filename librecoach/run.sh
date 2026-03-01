@@ -587,6 +587,14 @@ jq -n \
         addon_slug: $slug
     }' > /config/.librecoach-ble-config.json
 
+# Ensure the config file is excluded from git to protect credentials
+GITIGNORE="/config/.gitignore"
+GITIGNORE_ENTRY=".librecoach-ble-config.json"
+if [ ! -f "$GITIGNORE" ] || ! grep -qF "$GITIGNORE_ENTRY" "$GITIGNORE"; then
+    echo "$GITIGNORE_ENTRY" >> "$GITIGNORE"
+    bashio::log.info "   Added $GITIGNORE_ENTRY to /config/.gitignore"
+fi
+
 # Install/update integration files (only restart if code actually changed)
 NEEDS_HA_RESTART=false
 

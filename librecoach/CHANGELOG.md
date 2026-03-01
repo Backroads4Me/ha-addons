@@ -1,3 +1,10 @@
+### 1.2.7 (Feb 28, 2026)
+
+**⚠️ Check your tank names ⚠️** Black and gray tank labels were previoulsy swapped in some installations and now corrected.
+
+- Fixed tank black/gray sensor assignment
+- Added additional tank support
+
 ### 1.2.0 (Feb 26, 2026)
 
 - Added GeoBridge for automatic home location tracking
