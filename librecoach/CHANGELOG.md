@@ -1,3 +1,12 @@
+### 1.2.9 (Mar 3, 2026)
+
+- Added new beta capabilities that can be enabled on the config tab
+  - Added support for additional light types (beta)
+  - Added additional Aqua-Hot support (beta)
+  - Added water heater support (beta)
+  - Added furnace support (beta)
+- Improved efficiency for better performance on older devices
+
 ### 1.2.8 (Mar 1, 2026)
 
 - Performance tuning
