@@ -916,6 +916,7 @@ if wait_for_nodered_api; then
     mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
     mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
     mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
+    mqtt_pub -t "librecoach/config/geo_enabled" -m "$GEO_ENABLED"
     bashio::log.info "   Re-published config toggles to MQTT"
 else
     bashio::log.warning "   ⚠️  Node-RED API did not respond. It may still be starting."
