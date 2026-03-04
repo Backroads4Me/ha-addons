@@ -44,6 +44,7 @@ DEBUG_LOGGING=$(bashio::config 'debug_logging')
 VICTRON_ENABLED=$(bashio::config 'victron_enabled')
 BETA_ENABLED=$(bashio::config 'beta_enabled')
 MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
+GEO_ENABLED=$(bashio::config 'geo_enabled')
 
 # ======================== 
 # Orchestrator Helpers
@@ -577,6 +578,7 @@ mqtt_pub() { mosquitto_pub -h "$MQTT_HOST" -p "$MQTT_PORT" -u "$MQTT_USER" -P "$
 mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
 mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
 mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
+mqtt_pub -t "librecoach/config/geo_enabled" -m "$GEO_ENABLED"
 bashio::log.info "   Published config toggles to MQTT"
 
 # ========================
