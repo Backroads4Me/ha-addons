@@ -4,7 +4,7 @@
 
 ## Configuration
 
-All settings are managed under **Settings → Add-ons → LibreCoach → Configuration**.
+All settings are managed under **Settings → Apps → LibreCoach → Configuration**.
 
 | Option                                    | Description                                                                                                                                      |
 | :---------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -13,7 +13,7 @@ All settings are managed under **Settings → Add-ons → LibreCoach → Configu
 | **Enable Victron Energy Integration**     | Enable or disable Victron GX device support. Enabled by default.                                                                                 |
 | **Enable Beta Features**                  | Enables experimental features still in development. Use at your own risk.                                                                        |
 | **Allow Node-RED Overwrite**              | Only used during first install. Must be enabled to allow LibreCoach to replace existing Node-RED flows. **This will delete your current flows.** |
-| **Preserve Node-RED Flow Customizations** | Preserves your customized Node-RED flows during add-on updates. System software and reference files still update normally.                       |
+| **Preserve Node-RED Flow Customizations** | Preserves your customized Node-RED flows during app updates. System software and reference files still update normally.                       |
 | **Enable Debug Logging**                  | Enables verbose logging for troubleshooting. Leave off during normal use.                                                                        |
 | **MQTT User / Password**                  | Credentials used by the Vehicle Bridge and Node-RED to connect to Mosquitto.                                                                     |
 | **CAN Interface**                         | The host network interface name for your CAN hardware (default is `can0`).                                                                       |

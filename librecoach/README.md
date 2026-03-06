@@ -1,23 +1,12 @@
 # LibreCoach - RV Control System
 
-LibreCoach transforms a Raspberry Pi into a professional RV control center. It integrates your RV's RV-C network directly with Home Assistant allowing you to control and monitor your RV from mobile device.
-
-### The "App" vs. The "Installer"
-
-To make setup easy, LibreCoach is delivered as a **Home Assistant Add-on**.
-
-- **The LibreCoach Add-on**: This is the _installer_. You run it once to automatically set up the environment.
-- **The LibreCoach App**: This is the _result_. It is the complete system (Dashboards, Automation, Logic) that controls your rig.
+LibreCoach transforms a Raspberry Pi into a professional RV control center. It integrates your RV's RV-C network directly with Home Assistant, allowing you to control and monitor your RV from any device.
 
 ## Features
 
-- **System Orchestrator**: One-click setup. The add-on automatically installs and configures the official Mosquitto Broker and Node-RED.
-- **Hardware Bridge**: Connects directly to your CAN hardware (e.g., Waveshare HAT) and bridges RV-C network traffic to Home Assistant natively.
-- **Project Bundler**: Deploys pre-configured LibreCoach automation flows to instantly interpret your RV's data.
-
-## Requirements
-
-Before installing, ensure you have a supported CAN interface (e.g., Waveshare CAN HAT) installed on your device.
+- One-click setup — automatically installs and configures Mosquitto Broker and Node-RED.
+- Connects directly to your CAN hardware (e.g., Waveshare HAT) and bridges RV-C network traffic to Home Assistant.
+- Deploys pre-configured automation flows to instantly interpret your RV's data.
 
 ## Installation
 
@@ -29,11 +18,11 @@ Or manually add: `https://github.com/backroads4me/ha-addons`
 
 ### 2. Install & Start
 
-Find **LibreCoach** in the store and click **Install**, then **Start**.
+Find **LibreCoach** in the app store and click **Install**, then **Start**.
 
-**The add-on will perform the following "Orchestration" steps:**
+**The app will perform the following orchestration steps:**
 
-1.  Check for **Mosquitto** and install/configure it if missing.
+1.  Check for **Mosquitto MQTT broker** and install/configure it if missing.
 2.  Start the internal **RV-C and Location Tracking Bridges**.
 3.  Check for **Node-RED** and install/configure it.
 4.  **Deploy** the LibreCoach automation flows.
@@ -41,22 +30,18 @@ Find **LibreCoach** in the store and click **Install**, then **Start**.
 ## Existing Node-RED Users
 
 If you already use Node-RED, LibreCoach will **PAUSE** to protect your work.
-To proceed, you must go to the **Configuration** tab and enable `Allow Node-RED Overwrite`.
-_See the [Documentation](https://github.com/backroads4me/ha-addons/blob/main/librecoach/DOCS.md) for full details._
-
-## Advanced: Decoding Unknown Devices
-
-Have an unsupported RV device? LibreCoach includes a built-in RV-C bus recording tool to help you reverse-engineer its protocol and expand your system. Read the **[Decoding Unknown Devices](https://librecoach.com/advanced-setup/decoding-unknowns/)** guide.
+To proceed, go to the **Configuration** tab and enable `Allow Node-RED Overwrite`.
+See the [Documentation](https://github.com/backroads4me/ha-addons/blob/main/librecoach/DOCS.md) for full details.
 
 ## Support
 
-For full configuration options, troubleshooting, and guides, please visit: [LibreCoach.com](https://librecoach.com)
+For configuration options, advanced features, and guides, visit [LibreCoach.com](https://librecoach.com).
 
 ---
 
 ## License
 
-This add-on is licensed under the **GNU General Public License v3.0 (GPL-3.0-only)**.
+This app is licensed under the **GNU General Public License v3.0 (GPL-3.0-only)**.
 Contributions are accepted under the CLA, which grants the project owner the right to offer
 alternative licensing terms (including commercial licensing) outside this repository.
 
@@ -64,7 +49,7 @@ alternative licensing terms (including commercial licensing) outside this reposi
 
 ## Contributing
 
-Contributions to the LibreCoach add-on require signing the CLA. See [CONTRIBUTING.md](./CONTRIBUTING.md).
+Contributions to LibreCoach require signing the CLA. See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 

@@ -1,3 +1,7 @@
+#### 1.2.11 (Mar 6, 2026)
+
+- Bug fixes
+
 #### 1.2.10 (Mar 5, 2026)
 
 - Added support for water heater, furnace, AC loads (load shedding) and additional light types
@@ -20,7 +24,7 @@
 
 #### 1.2.7 (Feb 28, 2026)
 
-**⚠️ Check your tank names ⚠️** Black and gray tank labels were previoulsy swapped in some installations and now corrected.
+**⚠️ Check your tank names ⚠️** Black and gray tank labels were previously swapped in some installations and now corrected.
 
 - Fixed tank black/gray sensor assignment
 - Added additional tank support
@@ -60,7 +64,7 @@
 #### 1.0.3 (Feb 15, 2026)
 
 - Start add-on once after update to enable auto-start
-- Added Template Export / Import
+- Added Configuration Export / Import
 - Add-on stays running for automatic updates
 
 #### 1.0.0 – 1.0.2 (Feb 13–14, 2026)

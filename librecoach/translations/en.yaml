@@ -31,16 +31,10 @@ configuration:
     description: "Allows LibreCoach to overwrite your existing Node-RED flows. WARNING: This will delete your current flows!"
   prevent_flow_updates:
     name: "Preserve Node-RED Flow Customizations (Referenced at update and restart)"
-    description: "Enable this to PRESERVE your customized flows during add-on updates. Core files (decoders, etc.) will still be updated, but flows.json will not be touched."
+    description: "Enable this to PRESERVE your customized flows during app updates. Core files (decoders, etc.) will still be updated, but flows.json will not be touched."
   debug_logging:
     name: "Enable Debug Logging"
     description: "Enables detailed debug logging for troubleshooting."
-  mqtt_host:
-    name: "MQTT Broker Host"
-    description: "Hostname or IP address of the MQTT broker."
-  mqtt_port:
-    name: "MQTT Broker Port"
-    description: "Port number for the MQTT broker."
   mqtt_user:
     name: "MQTT User"
     description: "Username for MQTT authentication."

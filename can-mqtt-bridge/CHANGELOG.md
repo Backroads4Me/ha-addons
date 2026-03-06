@@ -1,3 +1,7 @@
+#### 1.0.6 (Mar 6, 2026)
+
+- Pinned Python dependencies
+
 ## [1.0.5] - 2026-02-26
 
 ### Changed

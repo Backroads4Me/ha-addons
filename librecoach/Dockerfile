@@ -9,11 +9,11 @@ RUN apk add --no-cache git python3 py3-pip
 
 # Install Python dependencies
 RUN pip install --no-cache-dir --break-system-packages \
-    python-can \
-    paho-mqtt \
-    pyserial \
-    bitstruct \
-    websockets
+    python-can==4.6.1 \
+    paho-mqtt==2.1.0 \
+    pyserial==3.5 \
+    bitstruct==8.22.1 \
+    websockets==16.0
 
 # Bundle the Node-RED Project
 # Always pulls latest from main branch

@@ -1,0 +1,46 @@
+configuration:
+  geo_enabled:
+    name: "Activar actualizaciones de ubicación automáticas"
+    description: "Actualiza la ubicación, zona horaria y elevación de Home Assistant basándose en datos de device_tracker."
+  geo_device_tracker_primary:
+    name: "Rastreador de dispositivo principal"
+    description: "ID de entidad del rastreador principal para ubicación (ej., device_tracker.teléfono). Nota: El rastreador DEBE proporcionar coordenadas GPS para funcionar."
+  geo_device_tracker_secondary:
+    name: "Rastreador de dispositivo secundario (respaldo)"
+    description: "ID de entidad del rastreador de respaldo cuando el principal no está disponible. Nota: El rastreador DEBE proporcionar coordenadas GPS para funcionar."
+  geo_update_threshold:
+    name: "Umbral de actualización (millas)"
+    description: "Distancia mínima en millas que debe moverse el RV antes de actualizar los datos de ubicación. Rango: 1-500."
+  microair_enabled:
+    name: "Activar integración de termostato Micro-Air EasyTouch"
+    description: "Se conecta a termostatos vía Bluetooth."
+  microair_email:
+    name: "Correo electrónico de cuenta Micro-Air"
+    description: "Correo electrónico de su cuenta Micro-Air EasyTouch."
+  microair_password:
+    name: "Contraseña de cuenta Micro-Air"
+    description: "Contraseña de su cuenta Micro-Air EasyTouch."
+  victron_enabled:
+    name: "Activar integración Victron Energy"
+    description: "Requiere un dispositivo GX con MQTT activado."
+  beta_enabled:
+    name: "Activar funciones beta"
+    description: "Activa funciones experimentales cuando están disponibles. Úselo bajo su propio riesgo."
+  confirm_nodered_takeover:
+    name: "Permitir sobrescritura de Node-RED (solo configuración de instalación inicial)"
+    description: "Permite que LibreCoach sobrescriba sus flujos de Node-RED existentes. ADVERTENCIA: ¡Esto eliminará sus flujos actuales!"
+  prevent_flow_updates:
+    name: "Preservar personalizaciones de flujos Node-RED (referenciado en actualización y reinicio)"
+    description: "Active esto para PRESERVAR sus flujos personalizados durante las actualizaciones de la aplicación. Los archivos base (decodificadores, etc.) se seguirán actualizando, pero flows.json no se modificará."
+  debug_logging:
+    name: "Activar registro de depuración"
+    description: "Activa el registro detallado de depuración para solución de problemas."
+  mqtt_user:
+    name: "Usuario MQTT"
+    description: "Nombre de usuario para autenticación MQTT."
+  mqtt_pass:
+    name: "Contraseña MQTT"
+    description: "Contraseña para autenticación MQTT."
+  can_interface:
+    name: "Interfaz CAN"
+    description: "Nombre de la interfaz del sistema para el adaptador CAN."
