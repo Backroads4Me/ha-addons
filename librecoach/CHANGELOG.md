@@ -1,3 +1,8 @@
+#### 1.2.12 (Mar 6, 2026)
+
+- Added Aqua-Hot per-zone heating status
+- Fixed recording export download link
+
 #### 1.2.11 (Mar 6, 2026)
 
 - Bug fixes
