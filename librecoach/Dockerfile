@@ -1,4 +1,4 @@
-ARG BUILD_FROM=ghcr.io/home-assistant/amd64-addon-base:latest
+ARG BUILD_FROM=ghcr.io/home-assistant/aarch64-base:latest
 
 # --- Build stage: install build-only tools ---
 FROM $BUILD_FROM AS builder

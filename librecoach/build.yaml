@@ -1,2 +1,2 @@
 args:
-  BUILD_FROM: ghcr.io/home-assistant/{arch}-addon-base:latest
+  BUILD_FROM: ghcr.io/home-assistant/{arch}-base:latest
