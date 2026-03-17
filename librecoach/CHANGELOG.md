@@ -1,3 +1,9 @@
+#### 1.2.13 (Mar 16, 2026)
+
+- Improved Aqua-Hot zone control decoding
+- Fixed Victron device icon bug
+- Added setpoint range validation to floor heat level discovery
+
 #### 1.2.12 (Mar 6, 2026)
 
 - Added Aqua-Hot per-zone heating status
