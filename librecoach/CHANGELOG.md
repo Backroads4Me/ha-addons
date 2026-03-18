@@ -1,3 +1,8 @@
+#### 1.2.14 (Mar 17, 2026)
+
+- Added heat source presets for Micro-Air thermostats (Heat Pump, Furnace, etc.)
+- Heat source selection persists across off/on cycles
+
 #### 1.2.13 (Mar 16, 2026)
 
 - Improved Aqua-Hot zone control decoding
