@@ -152,6 +152,17 @@ jobs:
           driver-opts: |
             image=moby/buildkit:latest
 
+      - name: Map architecture to Docker platform
+        if: steps.info.outputs.supported == 'true'
+        id: platform
+        run: |
+          case "${{ matrix.arch }}" in
+            aarch64) echo "docker_platform=linux/arm64" >> $GITHUB_OUTPUT ;;
+            amd64)   echo "docker_platform=linux/amd64" >> $GITHUB_OUTPUT ;;
+            armv7)   echo "docker_platform=linux/arm/v7" >> $GITHUB_OUTPUT ;;
+            *)       echo "Unknown architecture: ${{ matrix.arch }}"; exit 1 ;;
+          esac
+
       - name: Set lowercase owner
         if: steps.info.outputs.supported == 'true'
         id: lowercase
@@ -168,17 +179,13 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
           fi
 
-      - name: Pull base image
-        if: steps.info.outputs.supported == 'true'
-        run: docker pull ${{ steps.build_args.outputs.build_from }}
-
       - name: Build and push addon
         if: steps.info.outputs.supported == 'true' && github.event_name != 'pull_request'
         uses: docker/build-push-action@v5
         with:
           context: ./${{ matrix.addon }}
           file: ./${{ matrix.addon }}/Dockerfile
-          platforms: linux/${{ matrix.arch }}
+          platforms: ${{ steps.platform.outputs.docker_platform }}
           push: true
           tags: |
             ghcr.io/${{ env.OWNER }}/${{ matrix.arch }}-${{ matrix.addon }}:${{ steps.info.outputs.version }}
@@ -194,7 +201,7 @@ jobs:
         with:
           context: ./${{ matrix.addon }}
           file: ./${{ matrix.addon }}/Dockerfile
-          platforms: linux/${{ matrix.arch }}
+          platforms: ${{ steps.platform.outputs.docker_platform }}
           push: false
           build-args: |
             BUILD_FROM=${{ steps.build_args.outputs.build_from }}
