@@ -12,8 +12,8 @@ on:
     branches:
       - main
   workflow_dispatch:
-  schedule:
-    - cron: "0 3 * * 0"
+  #schedule:
+  #  - cron: "0 3 * * 0"
 
 jobs:
   init:
