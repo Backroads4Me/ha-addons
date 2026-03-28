@@ -1,3 +1,7 @@
+#### 1.2.15 (Mar 28, 2026)
+
+- Corrected a AquaHot water heater bug
+
 #### 1.2.14 (Mar 17, 2026)
 
 - Added heat source presets for Micro-Air thermostats (Heat Pump, Furnace, etc.)
