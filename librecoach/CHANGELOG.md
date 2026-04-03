@@ -1,3 +1,10 @@
+### 1.2.16 (Apr 3, 2026)
+
+- Prevented dimmer capability detection from being lost after updates or restarts
+- Added standard RV-C thermostat climate entity support with Home Assistant control
+- Removed duplicate naming in water heater entities
+- Added beta support for wireless panel signal status, available only when beta testing is enabled in config
+
 #### 1.2.15 (Mar 28, 2026)
 
 - Corrected a AquaHot water heater bug
