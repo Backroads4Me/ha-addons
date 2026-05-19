@@ -35,6 +35,7 @@ options:
   microair_password: ""
   victron_enabled: true
   beta_enabled: false
+  rvc_time_sync_enabled: false
   confirm_nodered_takeover: false
   prevent_flow_updates: false
   debug_logging: false
@@ -51,6 +52,7 @@ schema:
   microair_password: password?
   victron_enabled: bool
   beta_enabled: bool
+  rvc_time_sync_enabled: bool
   confirm_nodered_takeover: bool
   prevent_flow_updates: bool
   debug_logging: bool

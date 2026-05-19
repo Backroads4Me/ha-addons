@@ -45,6 +45,7 @@ VICTRON_ENABLED=$(bashio::config 'victron_enabled')
 BETA_ENABLED=$(bashio::config 'beta_enabled')
 MICROAIR_ENABLED=$(bashio::config 'microair_enabled')
 GEO_ENABLED=$(bashio::config 'geo_enabled')
+RVC_TIME_SYNC_ENABLED=$(bashio::config 'rvc_time_sync_enabled')
 
 # ======================== 
 # Orchestrator Helpers
@@ -579,6 +580,7 @@ mqtt_pub -t "librecoach/config/victron_enabled" -m "$VICTRON_ENABLED"
 mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
 mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
 mqtt_pub -t "librecoach/config/geo_enabled" -m "$GEO_ENABLED"
+mqtt_pub -t "librecoach/config/rvc_time_sync_enabled" -m "$RVC_TIME_SYNC_ENABLED"
 bashio::log.info "   Published config toggles to MQTT"
 
 # ========================
@@ -917,6 +919,7 @@ if wait_for_nodered_api; then
     mqtt_pub -t "librecoach/config/beta_enabled" -m "$BETA_ENABLED"
     mqtt_pub -t "librecoach/config/microair_enabled" -m "$MICROAIR_ENABLED"
     mqtt_pub -t "librecoach/config/geo_enabled" -m "$GEO_ENABLED"
+    mqtt_pub -t "librecoach/config/rvc_time_sync_enabled" -m "$RVC_TIME_SYNC_ENABLED"
     bashio::log.info "   Re-published config toggles to MQTT"
 else
     bashio::log.warning "   ⚠️  Node-RED API did not respond. It may still be starting."
