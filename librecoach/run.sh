@@ -443,6 +443,10 @@ fi
 OWNER_SLUG=$(api_call GET "/addons/self/info" | jq -r '.data.slug // empty')
 sed -i "s/REPLACE_ME/$OWNER_SLUG/g" "$PROJECT_PATH/init-nodered.sh"
 
+# Inject MQTT credentials into settings.js
+sed -i "s|REPLACE_MQTT_USER|$MQTT_USER|g" "$PROJECT_PATH/data/settings.js"
+sed -i "s|REPLACE_MQTT_PASS|$MQTT_PASS|g" "$PROJECT_PATH/data/settings.js"
+
 # Ensure permissions are open (Node-RED runs as non-root)
 chmod -R 755 "$PROJECT_PATH"
 bashio::log.info "   Project files deployed"
