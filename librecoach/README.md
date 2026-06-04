@@ -56,8 +56,10 @@ Contributions to LibreCoach require signing the CLA. See [CONTRIBUTING.md](./CON
 ## Support LibreCoach
 
 LibreCoach is free and open source.
-If it's useful to you, you can support its development in either of these ways:
+
+If it helped you connect your RV to Home Assistant, the best way to support the project right now is to star this repository so other RV and Home Assistant users can find it.
+
+Sponsorships are appreciated, but never expected.
 
 [![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
-[![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)

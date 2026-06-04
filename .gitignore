@@ -38,11 +38,6 @@ env/
 # Logs
 *.log
 
-# Testing
-.pytest_cache/
-.coverage
-htmlcov/
-
 # Home Assistant
 secrets.yaml
 *.db
@@ -65,3 +60,4 @@ REVIEW-*.md
 *PLAN*.md
 *.json.bak
 options.json
+

@@ -68,7 +68,11 @@ Note: This repository uses a CLA for the LibreCoach add-on only. The CLA check i
 
 ## Support the Project
 
-These addons are free and open source.  
-If they’ve helped you or saved you time, consider supporting continued development:
+This add-on is free and open source.
 
-[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/backroads4me)
+If it helped you work with CAN traffic in Home Assistant, the best way to support the project right now is to star this repository so other users can find it.
+
+Sponsorships are appreciated, but never expected.
+
+[![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
+[![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)

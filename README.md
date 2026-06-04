@@ -1,6 +1,8 @@
 # Backroads4Me Home Assistant Add-ons
 
-This repository contains a collection of my Home Assistant add-ons.
+Stable Home Assistant add-ons for LibreCoach, RV-C/CAN bus integration, and related RV automation tools.
+
+Use this repository if you want the stable release channel for LibreCoach and supporting add-ons.
 
 ## Add-ons
 
@@ -21,9 +23,11 @@ To add this repository to your Home Assistant instance, click the button below:
 
 ## Support the Project
 
-These addons are free and open source.  
-If they’ve helped you or saved you time, consider supporting continued development:
+These add-ons are free and open source.
+
+If they helped you, the best way to support the project right now is to star this repository. Stars help other Home Assistant and RV users discover it.
+
+Sponsorships are appreciated, but never expected.
 
 [![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
-[![Buy Me a Coffee](https://img.shields.io/badge/Support-Buy%20Me%20a%20Coffee-FFDD00?logo=buy-me-a-coffee&logoColor=000000)](https://buymeacoffee.com/Backroads4Me)
