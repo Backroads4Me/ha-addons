@@ -1,6 +1,10 @@
 ### 1.2.17 (Jun 5, 2026)
 
-- Updated Node-RED flow deployment for the flow-splitter artifact directory
+- Added RV-C Network Time Sync: periodically broadcasts system time to the RV-C network. Disabled by default; enable in add-on configuration
+- Added export of AI Prompt to generate a structured LLM prompt for use with AI-assisted dashboard creation
+- Added Solar Controller support
+- Fixed dimmer state handling in HA status publishers
+- Updated AquaHot integration for some versions
 
 ### 1.2.16 (Apr 3, 2026)
 
