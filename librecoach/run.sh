@@ -358,8 +358,8 @@ get_managed_version() {
 }
 
 get_flows_hash() {
-  if [ -f "/opt/librecoach-project/flows.json" ]; then
-    md5sum "/opt/librecoach-project/flows.json" | cut -d' ' -f1
+  if [ -f "$BUNDLED_PROJECT/artifact/flows.json" ]; then
+    md5sum "$BUNDLED_PROJECT/artifact/flows.json" | cut -d' ' -f1
   else
     echo "unknown"
   fi

@@ -61,9 +61,10 @@ cp -r "$SOURCE_DIR/data/." "$PROJECT_DIR/data/"
 # are automatically installed by Node-RED during its npm initialization phase.
 cp "$SOURCE_DIR/package.json" /config/package.json
 
-# Copy flows.json and flows_cred.json to Node-RED config
+# Copy the generated flow artifact and credentials to Node-RED config
+# node-red-contrib-flow-splitter-extended writes the deployable flows file to artifact/.
 # flows_cred.json contains MQTT credentials encrypted with credential_secret="librecoach"
-cp "$SOURCE_DIR/flows.json" /config/flows.json
+cp "$SOURCE_DIR/artifact/flows.json" /config/flows.json
 cp "$SOURCE_DIR/flows_cred.json" /config/flows_cred.json
 
 # Copy settings.js to Node-RED config

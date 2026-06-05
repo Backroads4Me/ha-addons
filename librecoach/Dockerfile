@@ -21,6 +21,8 @@ RUN pip install --no-cache-dir --break-system-packages \
 # BUILD_VERSION changes per release, busting Docker cache to ensure fresh clone
 ARG BUILD_VERSION=dev
 RUN git clone --depth 1 https://github.com/Backroads4Me/librecoach-node-red /opt/librecoach-project && \
+    test -f /opt/librecoach-project/artifact/flows.json && \
+    test -f /opt/librecoach-project/flows_cred.json && \
     rm -rf /opt/librecoach-project/.git && \
     rm -f /opt/librecoach-project/.gitignore /opt/librecoach-project/.gitattributes
 

@@ -1,3 +1,7 @@
+### 1.2.17 (Jun 5, 2026)
+
+- Updated Node-RED flow deployment for the flow-splitter artifact directory
+
 ### 1.2.16 (Apr 3, 2026)
 
 - Prevented dimmer capability detection from being lost after updates or restarts
