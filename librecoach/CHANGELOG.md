@@ -1,14 +1,17 @@
-### 1.2.18 (Jun 5, 2026)
-
-- Fixed MQTT broker authentication: credentials are now injected at deploy time rather than relying on environment variable resolution, preventing connection failures after clean installs
-
-### 1.2.17 (Jun 5, 2026)
+### 1.2.2 (Jun 5, 2026)
 
 - Added RV-C Network Time Sync: periodically broadcasts system time to the RV-C network. Disabled by default; enable in add-on configuration
-- Added export of AI Prompt to generate a structured LLM prompt for use with AI-assisted dashboard creation
+- Added AI Dashboard Prompt export: generates a structured LLM prompt for AI-assisted dashboard creation
 - Added Solar Controller support
+- Enhanced AquaHot 2 integration with updated command encoding and expanded zone support
+- Added HA Entity Export: view and export a list of all discovered Home Assistant entities
+
+**Fixes**
+
+- Fixed MQTT broker authentication failures after clean installs
 - Fixed dimmer state handling in HA status publishers
-- Updated AquaHot integration for some versions
+- Fixed water pump and autofill status update reporting
+- Fixed color mode not matching discovery state on first publish
 
 ### 1.2.16 (Apr 3, 2026)
 
