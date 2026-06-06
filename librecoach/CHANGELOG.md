@@ -1,3 +1,7 @@
+### 1.2.18 (Jun 5, 2026)
+
+- Fixed MQTT broker authentication: credentials are now injected at deploy time rather than relying on environment variable resolution, preventing connection failures after clean installs
+
 ### 1.2.17 (Jun 5, 2026)
 
 - Added RV-C Network Time Sync: periodically broadcasts system time to the RV-C network. Disabled by default; enable in add-on configuration

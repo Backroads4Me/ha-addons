@@ -447,6 +447,49 @@ sed -i "s/REPLACE_ME/$OWNER_SLUG/g" "$PROJECT_PATH/init-nodered.sh"
 sed -i "s|REPLACE_MQTT_USER|$MQTT_USER|g" "$PROJECT_PATH/data/settings.js"
 sed -i "s|REPLACE_MQTT_PASS|$MQTT_PASS|g" "$PROJECT_PATH/data/settings.js"
 
+# Inject actual MQTT credentials into flows_cred.json.
+# The bundled file uses ${MQTT_USER}/${MQTT_PASS} placeholders which require Node-RED
+# env-var resolution at runtime — this step is fragile if credentialSecret doesn't
+# match. Instead, decrypt the file here, substitute real values, and re-encrypt so
+# Node-RED receives the credentials directly without any env-var dependency.
+_FLOWS_CRED="$PROJECT_PATH/flows_cred.json"
+if [ -f "$_FLOWS_CRED" ] && command -v openssl >/dev/null 2>&1; then
+    _enc=$(jq -r '."$" // empty' "$_FLOWS_CRED" 2>/dev/null)
+    if [ -n "$_enc" ]; then
+        _key=$(echo -n "librecoach" | openssl dgst -sha256 | awk '{print $2}')
+        _iv="${_enc:0:32}"
+        _ct="${_enc:32}"
+        _plain=$(echo "$_ct" | base64 -d 2>/dev/null | \
+            openssl enc -d -aes-256-ctr -K "$_key" -iv "$_iv" -nosalt 2>/dev/null)
+        if [ -n "$_plain" ]; then
+            _new=$(echo "$_plain" | python3 -c "
+import sys,json
+try:
+    c=json.loads(sys.stdin.read()); u,p=sys.argv[1],sys.argv[2]
+    for v in c.values():
+        if isinstance(v,dict):
+            if v.get('user')=='\${MQTT_USER}': v['user']=u
+            if v.get('password')=='\${MQTT_PASS}': v['password']=p
+    print(json.dumps(c))
+except: sys.exit(1)
+" "$MQTT_USER" "$MQTT_PASS" 2>/dev/null)
+            if [ -n "$_new" ]; then
+                _new_iv=$(openssl rand -hex 16)
+                _new_enc=$(echo -n "$_new" | \
+                    openssl enc -aes-256-ctr -K "$_key" -iv "$_new_iv" -nosalt 2>/dev/null | \
+                    base64 -w 0)
+                if [ -n "$_new_enc" ]; then
+                    printf '{\n    "$": "%s%s"\n}\n' "$_new_iv" "$_new_enc" > "$_FLOWS_CRED"
+                    bashio::log.info "   MQTT credentials injected into flows_cred.json"
+                else
+                    bashio::log.warning "   ⚠️  Could not re-encrypt flows_cred.json, using original"
+                fi
+            fi
+        fi
+    fi
+fi
+unset _FLOWS_CRED _enc _key _iv _ct _plain _new _new_iv _new_enc
+
 # Ensure permissions are open (Node-RED runs as non-root)
 chmod -R 755 "$PROJECT_PATH"
 bashio::log.info "   Project files deployed"
