@@ -1,3 +1,10 @@
+### 1.2.20 (Jun 7, 2026)
+
+**Fixes**
+
+- Fixed Node-RED failing to start on fresh installations
+- Fixed version numbering error (1.2.2 should have been 1.2.19)
+
 ### 1.2.2 (Jun 5, 2026)
 
 - Added RV-C Network Time Sync: periodically broadcasts system time to the RV-C network. Disabled by default; enable in add-on configuration

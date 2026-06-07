@@ -64,6 +64,12 @@ cp "$SOURCE_DIR/package.json" /config/package.json
 # Copy the generated flow artifact and credentials to Node-RED config
 # node-red-contrib-flow-splitter-extended writes the deployable flows file to artifact/.
 # flows_cred.json contains MQTT credentials encrypted with credential_secret="librecoach"
+if [ ! -f "$SOURCE_DIR/artifact/flows.json" ]; then
+    echo "ERROR: flows.json not found at $SOURCE_DIR/artifact/flows.json"
+    echo "This usually means LibreCoach needs to be updated. Please update LibreCoach"
+    echo "to the latest version in Settings → Add-ons, then restart it."
+    exit 1
+fi
 cp "$SOURCE_DIR/artifact/flows.json" /config/flows.json
 cp "$SOURCE_DIR/flows_cred.json" /config/flows_cred.json
 
