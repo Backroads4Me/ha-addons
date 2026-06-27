@@ -27,7 +27,5 @@ These add-ons are free and open source.
 
 If they helped you, the best way to support the project right now is to star this repository. Stars help other Home Assistant and RV users discover it.
 
-Sponsorships are appreciated, but never expected.
-
 [![Star Repository](https://img.shields.io/badge/%E2%AD%90%20Star%20this%20Repo-GitHub-lightgrey?logo=github&logoColor=black)](https://github.com/Backroads4Me/ha-addons)
 [![GitHub Sponsors](https://img.shields.io/badge/Sponsor-GitHub-EA4AAA?logo=github-sponsors&logoColor=white)](https://github.com/sponsors/Backroads4Me)
