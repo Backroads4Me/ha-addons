@@ -1,3 +1,9 @@
+### 1.3.1 (Jun 27, 2026)
+
+🐛 Fixes
+
+- DC dimmer capability now self-heals if it fails to report correctly
+
 ### 1.3.0 (Jun 26, 2026)
 
 > ⚠️ **Victron entity naming update:** Entity names were restructured to correctly
