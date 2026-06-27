@@ -6,8 +6,10 @@ To add a new device type:
 3. Import and add it to DEVICE_HANDLERS below
 """
 from .microair import MicroAirHandler
+from .hughes import HughesHandler
 
 # All registered device handlers — bridge iterates this for discovery matching
 DEVICE_HANDLERS = [
     MicroAirHandler,
+    HughesHandler,
 ]

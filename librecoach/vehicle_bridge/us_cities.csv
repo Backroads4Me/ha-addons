@@ -327,7 +327,7 @@ lat,lon,name,state,timezone,elevation_m
 61.52778,-165.58639,Chevak,Alaska,America/Nome,6
 60.36861,-151.30639,Cohoe,Alaska,America/Anchorage,7
 64.85694,-147.80278,College,Alaska,America/Anchorage,132
-60.5432,-145.75867,Cordova,Alaska,America/Anchorage,-9999
+60.5432,-145.75867,Cordova,Alaska,America/Anchorage,9
 55.47639,-133.14833,Craig,Alaska,America/Juneau,11
 63.87217,-145.21773,Deltana,Alaska,America/Anchorage,378
 59.67611,-151.5575,Diamond Ridge,Alaska,America/Anchorage,326
@@ -371,7 +371,7 @@ lat,lon,name,state,timezone,elevation_m
 70.25528,-148.33722,Prudhoe Bay,Alaska,America/Anchorage,13
 60.53194,-151.08528,Ridgeway,Alaska,America/Anchorage,56
 64.52399,-146.9021,Salcha,Alaska,America/Anchorage,245
-55.33597,-160.50071,Sand Point,Alaska,America/Anchorage,-9999
+55.33597,-160.50071,Sand Point,Alaska,America/Anchorage,10
 60.10426,-149.4435,Seward,Alaska,America/Anchorage,52
 57.05315,-135.33088,Sitka,Alaska,America/Sitka,11
 59.45833,-135.31389,Skagway,Alaska,America/Juneau,15
@@ -3727,7 +3727,7 @@ lat,lon,name,state,timezone,elevation_m
 20.23389,-155.80194,Kapaau,Hawaii,Pacific/Honolulu,140
 21.33555,-158.0582,Kapolei,Hawaii,Pacific/Honolulu,22
 21.92358,-159.54283,Kaumakani-Hanapepe,Hawaii,Pacific/Honolulu,156
-21.08939,-157.02255,Kaunakakai,Hawaii,Pacific/Honolulu,-9999
+21.08939,-157.02255,Kaunakakai,Hawaii,Pacific/Honolulu,3
 21.62315,-158.08041,Kawailoa,Hawaii,Pacific/Honolulu,11
 19.62265,-155.03744,Kea'au,Hawaii,Pacific/Honolulu,101
 19.52083,-155.9225,Kealakekua,Hawaii,Pacific/Honolulu,445
@@ -6254,7 +6254,7 @@ lat,lon,name,state,timezone,elevation_m
 43.36175,-70.47672,Kennebunkport,Maine,America/New_York,7
 44.95922,-70.15395,Kingfield,Maine,America/New_York,170
 43.08814,-70.73616,Kittery,Maine,America/New_York,10
-43.08299,-70.71009,Kittery Point,Maine,America/New_York,-9999
+43.08299,-70.71009,Kittery Point,Maine,America/New_York,12
 43.66369,-70.73478,Lake Arrowhead,Maine,America/New_York,112
 43.39453,-70.85089,Lebanon,Maine,America/New_York,90
 44.3034,-70.1195,Leeds,Maine,America/New_York,89
@@ -16623,7 +16623,7 @@ lat,lon,name,state,timezone,elevation_m
 46.2454,-119.19617,Tri-Cities,Washington,America/Los_Angeles,106
 47.47399,-122.26096,Tukwila,Washington,America/Los_Angeles,43
 48.06843,-122.29181,Tulalip,Washington,America/Los_Angeles,33
-48.03732,-122.31014,Tulalip Bay,Washington,America/Los_Angeles,-9999
+48.03732,-122.31014,Tulalip Bay,Washington,America/Los_Angeles,6
 47.00732,-122.90931,Tumwater,Washington,America/Los_Angeles,53
 46.55735,-120.47506,Union Gap,Washington,America/Los_Angeles,297
 47.67887,-122.02833,Union Hill-Novelty Hill,Washington,America/Los_Angeles,179

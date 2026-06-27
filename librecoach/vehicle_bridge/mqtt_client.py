@@ -9,7 +9,6 @@ log = logging.getLogger("vehicle_bridge.mqtt")
 
 class MqttClient:
     def __init__(self, config):
-        self.config = config
         self.client = mqtt.Client(
             mqtt.CallbackAPIVersion.VERSION2,
             client_id="vehicle_bridge",
@@ -49,6 +48,9 @@ class MqttClient:
                 await asyncio.sleep(10)
 
     def publish(self, topic, payload, qos=1, retain=False):
+        # QoS policy: commands, statuses, and configuration topics use QoS 1
+        # (the default). High-rate raw telemetry (e.g. can/raw) passes qos=0
+        # explicitly to reduce broker overhead — see V-6.
         if isinstance(payload, dict):
             payload = json.dumps(payload)
         self.client.publish(topic, payload, qos=qos, retain=retain)

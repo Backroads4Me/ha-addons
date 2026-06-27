@@ -13,7 +13,7 @@ def _load_config():
 
 
 def _configure_logging(config):
-    level = logging.DEBUG if config.get("debug_logging") else logging.INFO
+    level = logging.DEBUG if config.get("debug_logging") else logging.WARNING
     logging.basicConfig(
         level=level,
         format="%(asctime)s %(name)s %(levelname)s: %(message)s",

@@ -1,6 +1,6 @@
 # Home Assistant add-on: LibreCoach
 name: "LibreCoach"
-version: "1.2.20"
+version: "1.3.0"
 slug: "librecoach"
 description: "Smart home control for your RV"
 url: "https://librecoach.com"
@@ -26,15 +26,15 @@ map:
   - share:rw
   - config:rw
 options:
+  victron_enabled: false
+  hughes_enabled: false
+  microair_enabled: false
+  microair_email: ""
+  microair_password: ""
   geo_enabled: false
   geo_device_tracker_primary: ""
   geo_device_tracker_secondary: ""
   geo_update_threshold: 10
-  microair_enabled: false
-  microair_email: ""
-  microair_password: ""
-  victron_enabled: true
-  beta_enabled: false
   rvc_time_sync_enabled: false
   confirm_nodered_takeover: false
   prevent_flow_updates: false
@@ -43,15 +43,15 @@ options:
   mqtt_pass: "One23four"
   can_interface: "can0"
 schema:
+  victron_enabled: bool
+  hughes_enabled: bool
+  microair_enabled: bool
+  microair_email: str?
+  microair_password: password?
   geo_enabled: bool
   geo_device_tracker_primary: str?
   geo_device_tracker_secondary: str?
   geo_update_threshold: "int(1,500)?"
-  microair_enabled: bool
-  microair_email: str?
-  microair_password: password?
-  victron_enabled: bool
-  beta_enabled: bool
   rvc_time_sync_enabled: bool
   confirm_nodered_takeover: bool
   prevent_flow_updates: bool

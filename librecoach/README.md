@@ -1,12 +1,8 @@
 # LibreCoach - RV Control System
 
-LibreCoach transforms a Raspberry Pi into a professional RV control center. It integrates your RV's RV-C network directly with Home Assistant, allowing you to control and monitor your RV from any device.
+*Bring your RV's systems into Home Assistant — monitor, control, and automate from any device.*
 
-## Features
-
-- One-click setup — automatically installs and configures Mosquitto Broker and Node-RED.
-- Connects directly to your CAN hardware (e.g., Waveshare HAT) and bridges RV-C network traffic to Home Assistant.
-- Deploys pre-configured automation flows to instantly interpret your RV's data.
+LibreCoach transforms Home Assistant into a professional RV control center. It integrates your RV's RV-C network directly with Home Assistant, allowing you to control and monitor your RV from any device.
 
 ## Installation
 
@@ -18,20 +14,11 @@ Or manually add: `https://github.com/backroads4me/ha-addons`
 
 ### 2. Install & Start
 
-Find **LibreCoach** in the app store and click **Install**, then **Start**.
+Find **LibreCoach** in the app store under **Settings → Apps → Install Apps**.
 
-**The app will perform the following orchestration steps:**
-
-1.  Check for **Mosquitto MQTT broker** and install/configure it if missing.
-2.  Start the internal **RV-C and Location Tracking Bridges**.
-3.  Check for **Node-RED** and install/configure it.
-4.  **Deploy** the LibreCoach automation flows.
-
-## Existing Node-RED Users
-
-If you already use Node-RED, LibreCoach will **PAUSE** to protect your work.
-To proceed, go to the **Configuration** tab and enable `Allow Node-RED Overwrite`.
-See the [Documentation](https://github.com/backroads4me/ha-addons/blob/main/librecoach/DOCS.md) for full details.
+On first start, LibreCoach automatically installs and configures Mosquitto,
+Node-RED, and the LibreCoach automation flows. See the **Documentation** tab
+for first-start instructions.
 
 ## Support
 

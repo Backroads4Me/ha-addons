@@ -1,4 +1,29 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+
+class AuthenticationError(Exception):
+    """Raised when a device rejects credentials (distinct from BLE/connectivity errors).
+
+    The bridge treats this differently from BleakError/OSError/timeout: it is not
+    retried at full speed and is surfaced to MQTT as an auth failure rather than a
+    generic offline transition.
+    """
+
+
+@dataclass
+class StateMessage:
+    """A single MQTT publish produced by a device handler.
+
+    Handlers own their own topic shapes. The bridge only routes, publishes, and
+    logs these messages — it does not inspect device-specific payloads (e.g. zones).
+    """
+
+    topic: str
+    payload: str
+    retain: bool = False
+    qos: int = 1
+
 
 class BleDeviceHandler(ABC):
     """Base class for LibreCoach BLE device handlers."""
@@ -24,7 +49,9 @@ class BleDeviceHandler(ABC):
     async def authenticate(self, client) -> bool:
         """Authenticate with device after connection.
         Called by bridge's _ensure_connected.
-        Return True on success, False on failure.
+        Return True on success, False on authentication failure.
+        Raising AuthenticationError is equivalent to returning False.
+        Connectivity problems should raise BleakError/OSError/TimeoutError instead.
         """
 
     @abstractmethod
@@ -46,4 +73,13 @@ class BleDeviceHandler(ABC):
     def parse_status(self, raw: dict) -> dict:
         """Parse raw device JSON into the state dict published to MQTT.
         Pure function — no BLE or async needed.
+        """
+
+    @abstractmethod
+    def state_messages(self, parsed: dict) -> list[StateMessage]:
+        """Translate a parsed state dict into the MQTT messages to publish.
+
+        This is where device-specific topic construction lives (e.g. Micro-Air
+        zone topics). The bridge calls this and publishes the result verbatim, so
+        the bridge stays independent of any device's payload shape.
         """

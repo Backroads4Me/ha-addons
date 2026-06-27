@@ -20,15 +20,15 @@ configuration:
   microair_password:
     name: "Micro-Air Account Password"
     description: "Password for your Micro-Air EasyTouch account."
+  hughes_enabled:
+    name: "Enable Hughes Power Watchdog Integration"
+    description: "Connects to supported Hughes Power Watchdog surge protectors via Bluetooth. For setup, keep only your Watchdog nearby."
   victron_enabled:
     name: "Enable Victron Energy Integration"
     description: "Requires a GX device with MQTT enabled."
-  beta_enabled:
-    name: "Enable Beta Features"
-    description: "Enables experimental features when available. Use at your own risk."
   rvc_time_sync_enabled:
     name: "Enable RV-C Network Time Sync"
-    description: "Periodically broadcasts the current system time from the Pi to the RV-C network using the SET_DATE_TIME_COMMAND (DGN 1FFFEh). Helps keep RV devices time-synchronized. Defaults to disabled."
+    description: "Periodically broadcasts the current system time to the RV-C network. Helps keep RV devices time-synchronized. Defaults to disabled."
   confirm_nodered_takeover:
     name: "Allow Node-RED Overwrite (Initial install config only)"
     description: "Allows LibreCoach to overwrite your existing Node-RED flows. WARNING: This will delete your current flows!"
@@ -39,11 +39,11 @@ configuration:
     name: "Enable Debug Logging"
     description: "Enables detailed debug logging for troubleshooting."
   mqtt_user:
-    name: "MQTT User"
-    description: "Username for MQTT authentication."
+    name: "MQTT User (Advanced)"
+    description: "⚠️ Advanced setting — this normally should not be changed."
   mqtt_pass:
-    name: "MQTT Password"
-    description: "Password for MQTT authentication."
+    name: "MQTT Password (Advanced)"
+    description: "⚠️ Advanced setting — this normally should not be changed."
   can_interface:
-    name: "CAN Interface"
-    description: "System interface name for the CAN adapter."
+    name: "CAN Interface (Advanced)"
+    description: "⚠️ Advanced setting — this normally should not be changed."

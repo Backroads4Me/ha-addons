@@ -16,15 +16,10 @@ TOPIC_STATUS = "can/status"
 
 class CanBridge:
     def __init__(self, config, mqtt):
-        self.config = config
         self.mqtt = mqtt
         self.name = "can"
 
         self.can_interface = config.get("can_interface", "can0")
-        self.can_bitrate = CAN_BITRATE
-        self.topic_raw = TOPIC_RAW
-        self.topic_send = TOPIC_SEND
-        self.topic_status = TOPIC_STATUS
 
         self._bus = None
         self._read_task = None
@@ -51,7 +46,7 @@ class CanBridge:
         # Check if CAN interface exists
         if not os.path.exists(f"/sys/class/net/{self.can_interface}"):
             log.warning("CAN interface %s not found", self.can_interface)
-            self.mqtt.publish(self.topic_status, "no_interface", retain=True)
+            self.mqtt.publish(TOPIC_STATUS, "no_interface", retain=True)
             return
 
         # Initialize CAN interface
@@ -59,7 +54,7 @@ class CanBridge:
             await loop.run_in_executor(None, self._setup_interface)
         except Exception as exc:
             log.error("Failed to initialize CAN interface %s: %s", self.can_interface, exc)
-            self.mqtt.publish(self.topic_status, "no_interface", retain=True)
+            self.mqtt.publish(TOPIC_STATUS, "no_interface", retain=True)
             return
 
         # Open socketcan bus
@@ -69,22 +64,16 @@ class CanBridge:
             )
         except Exception as exc:
             log.warning("CAN interface %s not available: %s", self.can_interface, exc)
-            self.mqtt.publish(self.topic_status, "no_interface", retain=True)
+            self.mqtt.publish(TOPIC_STATUS, "no_interface", retain=True)
             return
 
         self._send_queue = asyncio.Queue()
-        self.mqtt.subscribe(self.topic_send, self._on_send)
+        self.mqtt.subscribe(TOPIC_SEND, self._on_send)
 
-        self.mqtt.publish(self.topic_status, "online", retain=True)
+        self.mqtt.publish(TOPIC_STATUS, "online", retain=True)
         log.info(
-            "CAN bridge started on %s @ %s bps", self.can_interface, self.can_bitrate
+            "CAN bridge started on %s @ %s bps", self.can_interface, CAN_BITRATE
         )
-        if self._filtered_pgns:
-            filtered = ", ".join(
-                f"1{pf:02X}{ps:02X}" for pf, ps in self._filtered_pgns
-            )
-
-
         self._read_task = asyncio.create_task(self._read_loop())
         self._write_task = asyncio.create_task(self._write_loop())
 
@@ -100,7 +89,7 @@ class CanBridge:
 
         # Set type and bitrate
         subprocess.run(
-            ["ip", "link", "set", iface, "type", "can", "bitrate", self.can_bitrate],
+            ["ip", "link", "set", iface, "type", "can", "bitrate", CAN_BITRATE],
             check=True, capture_output=True,
         )
 
@@ -110,7 +99,7 @@ class CanBridge:
             check=True, capture_output=True,
         )
 
-        log.info("CAN interface %s initialized at %s bps", iface, self.can_bitrate)
+        log.info("CAN interface %s initialized at %s bps", iface, CAN_BITRATE)
 
     async def stop(self):
         self._stopping = True
@@ -134,7 +123,7 @@ class CanBridge:
             check=False, capture_output=True,
         )
 
-        self.mqtt.publish(self.topic_status, "offline", retain=True)
+        self.mqtt.publish(TOPIC_STATUS, "offline", retain=True)
 
     async def _on_send(self, topic, payload):
         if self._send_queue is None:
@@ -161,7 +150,9 @@ class CanBridge:
                     can_id = f"{msg.arbitration_id:03X}"
                 data_hex = msg.data.hex().upper()
                 frame = f"{can_id}#{data_hex}"
-                self.mqtt.publish(self.topic_raw, frame, qos=1, retain=False)
+                # V-6: high-rate raw CAN telemetry uses QoS 0 (fire-and-forget) to
+                # reduce broker overhead. Commands/status/config stay at QoS 1.
+                self.mqtt.publish(TOPIC_RAW, frame, qos=0, retain=False)
             except can.CanError as exc:
                 log.warning("CAN read error: %s, retrying...", exc)
                 await asyncio.sleep(1.0)

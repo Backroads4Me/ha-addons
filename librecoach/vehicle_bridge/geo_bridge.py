@@ -14,8 +14,6 @@ log = logging.getLogger("vehicle_bridge.geo")
 # Constants
 POLL_INTERVAL = 60  # seconds
 SUPERVISOR_URL = "http://supervisor/core/api"
-STARTUP_RETRY_DELAY = 10  # seconds between retries waiting for Supervisor API
-STARTUP_MAX_RETRIES = 12  # give up after ~2 minutes
 MQTT_TOPIC = "can/status/geo"
 EARTH_RADIUS_MILES = 3958.8
 CSV_PATH = os.path.join(os.path.dirname(__file__), "us_cities.csv")
@@ -60,20 +58,17 @@ class GeoBridge:
             log.error("SUPERVISOR_TOKEN not available — geo bridge cannot run")
             return
 
-        # Fetch initial position with retries (Supervisor may not be ready)
-        for attempt in range(1, STARTUP_MAX_RETRIES + 1):
-            coords = await self._fetch_coordinates()
-            if coords is not None:
-                lat, lon, elev, tracker_id = coords
-                if await self._check_and_update(lat, lon, elev, tracker_id, force=True):
-                    break
-            log.warning(
-                "Waiting for HA API (attempt %d/%d), retrying in %ds",
-                attempt, STARTUP_MAX_RETRIES, STARTUP_RETRY_DELAY,
-            )
-            await asyncio.sleep(STARTUP_RETRY_DELAY)
+        # Make one best-effort initial update. Device trackers often publish
+        # coordinates after this service starts, so normal retrying belongs to
+        # the poll loop rather than blocking startup with noisy warnings.
+        coords = await self._fetch_coordinates()
+        if coords is None:
+            log.info("Initial tracker coordinates unavailable; will retry in poll loop")
         else:
-            log.warning("Could not update location at startup — will retry in poll loop")
+            lat, lon, elev, tracker_id = coords
+            updated = await self._check_and_update(lat, lon, elev, tracker_id, force=True)
+            if not updated:
+                log.warning("Could not update location at startup — will retry in poll loop")
 
         self._poll_task = asyncio.create_task(self._poll_loop())
         log.info(
