@@ -2,7 +2,7 @@
 
 🐛 Fixes
 
-- Persisit DC_DRIVER based lights dimmer capability
+- Persist DC_DRIVER based lights dimmer capability
 
 ### 1.3.2 (Jun 27, 2026)
 
