@@ -1,1 +1,1 @@
-Workspace rules: `../AGENTS.md`
+Workspace rules: `../../AGENTS.md`
