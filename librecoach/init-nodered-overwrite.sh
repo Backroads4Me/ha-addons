@@ -174,20 +174,28 @@ if [ -f "$SOURCE_DIR/LICENSE" ]; then
   cp "$SOURCE_DIR/LICENSE" "$PROJECT_DIR/LICENSE"
 fi
 
-# Migrate persistent context keys from the old default location (/config/context/global)
-# to the new explicit location (/share/.librecoach/context/global), which survives
-# add-on reinstalls. Carries forward ALL persisted keys (fill-if-absent, never
-# overwrites) except those redesigned or reset in 2.0 (see EXCLUDE). Copying all
-# keys — rather than a hand-maintained whitelist — preserves dynamic per-instance
-# keys (e.g. dimmerBrightness_*, indicatorState_*) and any future keys.
+# Migrate persistent context keys from older locations to the current one
+# (/share/.librecoach-preserve/context/global), which survives add-on reinstalls,
+# channel switches, and the rsync --delete deploy of /share/.librecoach. Sources,
+# newest first: the 2.x location inside /share/.librecoach (wiped by rsync on
+# every LibreCoach start, but present whenever Node-RED flushed after the last
+# start) and the pre-2.x Node-RED default in /config. Carries forward ALL
+# persisted keys (fill-if-absent, never overwrites) except those redesigned or
+# reset in 2.0 (see EXCLUDE). Copying all keys — rather than a hand-maintained
+# whitelist — preserves dynamic per-instance keys (e.g. dimmerBrightness_*,
+# indicatorState_*) and any future keys.
 # Skipped on developer environments, which manage their own context configuration.
 if [ -f "/share/.librecoach-dev" ]; then
     echo "LibreCoach: Developer environment detected (/share/.librecoach-dev) — skipping context migration"
 else
 node -e '
   const fs = require("fs");
-  const OLD = "/config/context/global/global.json";
-  const NEW_DIR = "/share/.librecoach/context/global";
+  // Newest first — with fill-if-absent, earlier sources win on key conflicts.
+  const SOURCES = [
+    "/share/.librecoach/context/global/global.json",
+    "/config/context/global/global.json"
+  ];
+  const NEW_DIR = "/share/.librecoach-preserve/context/global";
   const NEW = NEW_DIR + "/global.json";
   // Keys redesigned or intentionally reset in 2.0 — do NOT carry forward.
   const EXCLUDE = new Set([
@@ -195,28 +203,27 @@ node -e '
     "recordUnknown", "recordUnknownLog", "recordUnknownStart"
   ]);
 
-  if (!fs.existsSync(OLD)) process.exit(0);
-
-  let oldCtx;
-  try { oldCtx = JSON.parse(fs.readFileSync(OLD, "utf8")); }
-  catch (e) { process.exit(0); }
-
-  fs.mkdirSync(NEW_DIR, { recursive: true });
-
   let newCtx = {};
   if (fs.existsSync(NEW)) {
     try { newCtx = JSON.parse(fs.readFileSync(NEW, "utf8")); } catch (e) {}
   }
 
   let count = 0;
-  for (const [k, v] of Object.entries(oldCtx)) {
-    if (EXCLUDE.has(k)) continue;
-    if (newCtx[k] === undefined) { newCtx[k] = v; count++; }
+  for (const src of SOURCES) {
+    if (!fs.existsSync(src)) continue;
+    let oldCtx;
+    try { oldCtx = JSON.parse(fs.readFileSync(src, "utf8")); }
+    catch (e) { continue; }
+    for (const [k, v] of Object.entries(oldCtx)) {
+      if (EXCLUDE.has(k)) continue;
+      if (newCtx[k] === undefined) { newCtx[k] = v; count++; }
+    }
   }
 
   if (count > 0) {
+    fs.mkdirSync(NEW_DIR, { recursive: true });
     fs.writeFileSync(NEW, JSON.stringify(newCtx, null, 4));
-    console.log("LibreCoach: Migrated " + count + " context key(s) to /share/.librecoach/context/");
+    console.log("LibreCoach: Migrated " + count + " context key(s) to /share/.librecoach-preserve/context/");
   }
 ' 2>/dev/null || echo "LibreCoach: Context migration skipped"
 fi

@@ -89,7 +89,7 @@ def test_b2_nonnumeric_zone_keys_do_not_crash():
     assert any(m.topic.endswith("/state") for m in msgs)
 
 
-def test_microair_poll_uses_zoneless_config_request(monkeypatch):
+def test_microair_poll_uses_per_zone_config_request(monkeypatch):
     handler = MicroAirHandler("aa:bb", {})
     requests = []
     responses = iter([
@@ -113,7 +113,7 @@ def test_microair_poll_uses_zoneless_config_request(monkeypatch):
 
     parsed = run(handler.poll(object()))
 
-    assert requests == [{"Type": "Get Status"}, {"Type": "Get Config"}]
+    assert requests == [{"Type": "Get Status"}, {"Type": "Get Config", "Zone": 0}]
     assert parsed["zone_configs"][0]["MAV"] == 6
 
 

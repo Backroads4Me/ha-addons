@@ -1,3 +1,24 @@
+### 1.4.0 (Jul 10, 2026)
+
+✨ New
+
+- Add additional Victron entities:
+  - battery time-to-go, consumed amp-hours, and low-voltage alarm
+  - solarcharger yield today
+  - MultiPlus alarms and shore power connected states
+  - MultiPlus Charge Power, Inverter Power and Total Output Power
+
+🛠️ Improvements
+
+- Improve Aqua-Hot 100/200 series support
+- Victron sensors now publish friendly labels such as "Inverting" and "Ok"
+- Victron energy sensors now work with Home Assistant energy tracking
+
+🐛 Fixes
+
+- Micro-Air fan modes now map manual/cycled high and low values correctly
+- Micro-Air heat source presets now better match supported device capabilities
+
 ### 1.3.3 (Jun 28, 2026)
 
 🐛 Fixes
