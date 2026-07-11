@@ -1,3 +1,11 @@
+### 1.4.1 (Jul 11, 2026)
+
+🐛 Fixes
+
+- corrected AquaHot water temperature and coolant temp display
+- fixed AquaHot electric-only operation toggle
+- rounded generator coolant temperature to a whole °F
+
 ### 1.4.0 (Jul 10, 2026)
 
 ✨ New
