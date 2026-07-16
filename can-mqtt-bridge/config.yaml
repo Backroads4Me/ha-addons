@@ -13,7 +13,6 @@ panel_title: "CAN Bridge"
 arch:
   - aarch64
   - amd64
-  - armv7
 init: false
 startup: application
 boot: manual

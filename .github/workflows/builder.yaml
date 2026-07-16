@@ -96,7 +96,7 @@ jobs:
     strategy:
       matrix:
         addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
-        arch: ["aarch64", "amd64", "armv7"]
+        arch: ["aarch64", "amd64"]
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -162,7 +162,6 @@ jobs:
           case "${{ matrix.arch }}" in
             aarch64) echo "docker_platform=linux/arm64" >> $GITHUB_OUTPUT ;;
             amd64)   echo "docker_platform=linux/amd64" >> $GITHUB_OUTPUT ;;
-            armv7)   echo "docker_platform=linux/arm/v7" >> $GITHUB_OUTPUT ;;
             *)       echo "Unknown architecture: ${{ matrix.arch }}"; exit 1 ;;
           esac
 
