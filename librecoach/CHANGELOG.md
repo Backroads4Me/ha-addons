@@ -1,3 +1,24 @@
+### 1.5.0 (Aug 2, 2026)
+
+> ⚠️ **Some Victron sensors changed type:** Victron readings that are only on or off, such as alarms and shore power connected, now use `binary_sensor` entity IDs instead of `sensor.` Dashboards and automations that reference them need to be updated after upgrading.
+
+✨ New
+
+- Additional Victron measurements, including battery, solar, inverter/charger, and generator current, plus more AC power readings
+- Victron custom device names set on the GX are now used in Home Assistant, making multiple devices of the same type easier to tell apart
+
+🛠️ Improvements
+
+- MQTT delivery is more dependable for discovery, states, and commands
+- Improved Aqua-Hot status reporting
+- Victron battery time-to-go now reports in hours, and reports unavailable when the GX is not calculating a remaining time
+- Entities recover on their own after an MQTT reconnect instead of staying unavailable until a restart
+
+🐛 Fixes
+
+- Corrected RV-C decoding across several entities; unavailable and out-of-range readings now display correctly
+- Victron entities no longer freeze at their last reading when a value is missing or non-numeric
+
 ### 1.4.1 (Jul 11, 2026)
 
 🐛 Fixes
@@ -18,14 +39,14 @@
 
 🛠️ Improvements
 
-- Improve Aqua-Hot 100/200 series support
-- Victron sensors now publish friendly labels such as "Inverting" and "Ok"
-- Victron energy sensors now work with Home Assistant energy tracking
+- Improve Aqua-Hot 100/200 series support, including quiet mode and interior heating priority state confirmation
+- Victron sensors now publish friendly labels such as `Inverting` and `Ok`
+- Victron energy sensors now publish `total_increasing` state class for Home Assistant energy tracking
 
 🐛 Fixes
 
 - Micro-Air fan modes now map manual/cycled high and low values correctly
-- Micro-Air heat source presets now better match supported device capabilities
+- Micro-Air heat source presets and optimistic updates now better match supported device capabilities
 
 ### 1.3.3 (Jun 28, 2026)
 
