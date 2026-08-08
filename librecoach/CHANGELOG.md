@@ -1,3 +1,9 @@
+### 1.5.1 (Aug 8, 2026)
+
+🐛 Fixes
+
+- Victron readings are now rounded to a precision appropriate for their metric to prevent database bloat.
+
 ### 1.5.0 (Aug 2, 2026)
 
 > ⚠️ **Some Victron sensors changed type:** Victron readings that are only on or off, such as alarms and shore power connected, now use `binary_sensor` entity IDs instead of `sensor.` Dashboards and automations that reference them need to be updated after upgrading.
