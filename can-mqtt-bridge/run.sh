@@ -10,6 +10,33 @@ if [ -z "${S6_SERVICE_PATH+x}" ]; then
   bashio::log.warning "This script is designed to run as an s6 service"
 fi
 
+# ===================================================================
+# Deprecation notice
+# ===================================================================
+# The bridge below still runs normally. This add-on has moved to its
+# own repository and this copy will be removed in a future release.
+bashio::log.warning "==================================================================="
+bashio::log.warning "  CAN-to-MQTT Bridge has MOVED to a new repository!"
+bashio::log.warning "==================================================================="
+bashio::log.warning "This copy still works, but it no longer receives updates and will be"
+bashio::log.warning "removed in a future release."
+bashio::log.warning "Please reinstall from: https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge"
+
+DEPRECATION_PAYLOAD=$(jq -n \
+    --arg title "CAN-to-MQTT Bridge has moved" \
+    --arg message "The **CAN-to-MQTT Bridge** add-on has moved to its own repository. This copy still works, but it no longer receives updates and will be removed in a future release.\n\nAdd the new repository to your add-on store, install **CAN to MQTT Bridge** from it, then uninstall this one:\n\n\`https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge\`" \
+    --arg id "can_mqtt_bridge_deprecated" \
+    '{"title": $title, "message": $message, "notification_id": $id}')
+
+DEPRECATION_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+    -H "Authorization: Bearer ${SUPERVISOR_TOKEN}" \
+    -H "Content-Type: application/json" -d "$DEPRECATION_PAYLOAD" \
+    "http://supervisor/core/api/services/persistent_notification/create" || echo "000")
+
+if [ "$DEPRECATION_STATUS" != "200" ] && [ "$DEPRECATION_STATUS" != "201" ]; then
+    bashio::log.warning "Could not post the migration notification (HTTP ${DEPRECATION_STATUS})."
+fi
+
 # Create health check file directory
 mkdir -p /var/run/s6/healthcheck
 

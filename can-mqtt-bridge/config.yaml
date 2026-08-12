@@ -2,11 +2,11 @@
 # Licensed under the MIT License
 # Add-on configuration file: config.yaml
 
-name: "CAN to MQTT Bridge"
-version: "1.0.6"
+name: "CAN to MQTT Bridge (DEPRECATED)"
+version: "1.0.7"
 slug: "can-mqtt-bridge"
-description: "Initializes CAN interface and provides a bidirectional CAN-MQTT bridge"
-url: "https://github.com/Backroads4Me/ha-addons"
+description: "MOVED: this add-on now lives in its own repository. It still works, but please reinstall from the new repository."
+url: "https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge"
 maintainer: "Ted Lanham <Backroads4Me@gmail.com>"
 panel_icon: "mdi:car-connected"
 panel_title: "CAN Bridge"
@@ -26,6 +26,7 @@ devices:
 auth_api: true
 apparmor: true
 hassio_api: true
+homeassistant_api: true
 hassio_role: default
 services:
   - "mqtt:need"

@@ -9,8 +9,8 @@ FROM ${BUILD_FROM}
 # Add metadata labels
 ARG BUILD_VERSION
 LABEL \
-    io.hass.name="CAN to MQTT Bridge" \
-    io.hass.description="Initializes CAN interface and provides a bidirectional CAN-MQTT bridge" \
+    io.hass.name="CAN to MQTT Bridge (DEPRECATED)" \
+    io.hass.description="MOVED: this add-on now lives in its own repository. It still works, but please reinstall from the new repository." \
     io.hass.type="addon" \
     io.hass.version="${BUILD_VERSION}" \
     maintainer="Ted Lanham <Backroads4Me@gmail.com>"
@@ -26,6 +26,7 @@ RUN apk add --no-cache \
     iproute2 \
     procps \
     coreutils \
+    curl \
     jq \
     python3
 

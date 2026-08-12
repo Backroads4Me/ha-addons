@@ -1,3 +1,12 @@
+#### 1.0.7 (Aug 12, 2026)
+
+- **This add-on has moved.** CAN to MQTT Bridge now lives in its own repository:
+  <https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge>
+- The bridge is unchanged and keeps working. This release only adds a log
+  warning and a persistent notification pointing at the new repository.
+- This copy will be removed in a future release — please reinstall from the new
+  repository.
+
 #### 1.0.6 (Mar 6, 2026)
 
 - Pinned Python dependencies

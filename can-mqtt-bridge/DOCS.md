@@ -1,4 +1,15 @@
-# CAN to MQTT Bridge
+# CAN to MQTT Bridge (DEPRECATED)
+
+> **This add-on has moved to its own repository:
+> <https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge>**
+>
+> This copy still works, but it no longer receives updates and will be removed
+> in a future release. To migrate:
+>
+> 1. Add `https://github.com/Backroads4Me/ha-addon-can-mqtt-bridge` to **Settings → Add-ons → Add-on Store → ⋮ → Repositories**.
+> 2. Install **CAN to MQTT Bridge** from that repository and copy your existing
+>    options across.
+> 3. Uninstall this add-on.
 
 ## How It Works
 
