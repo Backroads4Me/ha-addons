@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import time
 from datetime import datetime, timezone
 
 from bleak import BleakError
@@ -23,6 +24,7 @@ from .const import (
     TOPIC_RESET_LOCKS, TOPIC_RECONNECT, TOPIC_CLEAR_ERRORS,
     RETAINED_SCAN_WAIT,
     CONFIG_PATH, BLE_POLL_INTERVAL, BLE_BACKOFF_SCHEDULE, OFFLINE_AFTER_FAILURES,
+    BLE_OPERATION_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_TASK_CANCEL_TIMEOUT,
     PAYLOAD_ONLINE, PAYLOAD_OFFLINE,
     ERROR_NONE, ERROR_AUTH_FAILED, ERROR_CONNECTIVITY,
 )
@@ -47,6 +49,64 @@ class BleBridgeManager:
         # Debug counters for advertisement handling (B-1).
         self._adv_matched = 0
         self._adv_ignored = 0
+
+    @staticmethod
+    def _consume_task_result(task):
+        """Retrieve a detached task result so late cancellation cannot warn."""
+        try:
+            task.result()
+        except (asyncio.CancelledError, Exception):
+            pass
+
+    async def _bounded(self, awaitable, timeout: float, description: str):
+        """Await work for a fixed time without waiting for cancellation cleanup."""
+        task = asyncio.create_task(awaitable)
+        try:
+            done, _pending = await asyncio.wait({task}, timeout=timeout)
+        except asyncio.CancelledError:
+            task.cancel()
+            task.add_done_callback(self._consume_task_result)
+            raise
+        if task not in done:
+            task.cancel()
+            task.add_done_callback(self._consume_task_result)
+            raise asyncio.TimeoutError(
+                f"{description} timed out after {timeout:g} seconds"
+            )
+        return task.result()
+
+    def _start_poll_task(self, handler, address: str):
+        """Create and record the sole polling task for an active device."""
+        entry = self._active_devices.get(address)
+        if not entry or self._stopping:
+            return None
+        task = self.hass.async_create_task(self._poll_loop(handler, address))
+        entry["task"] = task
+        return task
+
+    async def _cancel_poll_task(self, entry: dict, address: str):
+        """Cancel a poll task without allowing uncooperative cleanup to block."""
+        task = entry.get("task")
+        entry["task"] = None
+        if not task:
+            return
+        if task.done():
+            self._consume_task_result(task)
+            return
+
+        task.cancel()
+        done, _pending = await asyncio.wait(
+            {task}, timeout=BLE_TASK_CANCEL_TIMEOUT
+        )
+        if task not in done:
+            task.add_done_callback(self._consume_task_result)
+            _LOGGER.warning(
+                "Polling task for %s did not stop within %s seconds",
+                address,
+                BLE_TASK_CANCEL_TIMEOUT,
+            )
+            return
+        self._consume_task_result(task)
 
     def _save_locked_device_sync(self, device_type: str, address: str):
         """Save a locked device address to config file (preserving other settings)."""
@@ -209,13 +269,7 @@ class BleBridgeManager:
         entry = self._active_devices.pop(address, None)
         if not entry:
             return
-        task = entry.get("task")
-        if task:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        await self._cancel_poll_task(entry, address)
         await self._disconnect(address, entry)
 
     # --- Device Discovery ---
@@ -272,9 +326,7 @@ class BleBridgeManager:
                 "wake": asyncio.Event(),   # set to interrupt backoff sleep (reconnect)
             }
             self._active_devices[address] = entry
-            entry["task"] = self.hass.async_create_task(
-                self._poll_loop(handler, address)
-            )
+            self._start_poll_task(handler, address)
             return
 
         # No handler claimed this advertisement.
@@ -301,9 +353,17 @@ class BleBridgeManager:
         """Ensure we have a connected, authenticated client. Returns the client."""
         entry = self._active_devices[address]
 
-        # Reuse existing connection if still valid
-        if entry["client"] and entry["client"].is_connected:
+        # Reuse only a connection that completed authentication. A prior
+        # timeout may leave the transport connected while the session itself
+        # is not valid.
+        if (
+            entry["client"]
+            and entry["client"].is_connected
+            and entry["authenticated"]
+        ):
             return entry["client"]
+        if entry["client"]:
+            await self._disconnect(address, entry)
 
         ble_device = self._get_ble_device(address)
         if not ble_device:
@@ -316,6 +376,8 @@ class BleBridgeManager:
             address,
             timeout=20.0,
         )
+        entry["client"] = client
+        entry["authenticated"] = False
 
         # Authenticate. A False/raised result means credentials were rejected (B-5),
         # which is distinct from a connectivity failure and must not be retried fast.
@@ -325,11 +387,13 @@ class BleBridgeManager:
         except AuthenticationError:
             await self._disconnect(address, entry)
             raise
+        except Exception:
+            await self._disconnect(address, entry)
+            raise
         if not ok:
             await self._disconnect(address, entry)
             raise AuthenticationError(f"Authentication failed for {address}")
 
-        entry["client"] = client
         entry["authenticated"] = True
         _LOGGER.debug("Connected and authenticated to %s", address)
         return client
@@ -345,12 +409,19 @@ class BleBridgeManager:
         if client:
             try:
                 if client.is_connected:
-                    await client.disconnect()
-            except (BleakError, OSError) as exc:
+                    await self._bounded(
+                        client.disconnect(),
+                        BLE_DISCONNECT_TIMEOUT,
+                        f"BLE disconnect for {address}",
+                    )
+            except (BleakError, OSError, asyncio.TimeoutError) as exc:
                 _LOGGER.debug("Error during disconnect for %s: %s", address, exc)
-
-        entry["client"] = None
-        entry["authenticated"] = False
+            finally:
+                entry["client"] = None
+                entry["authenticated"] = False
+        else:
+            entry["client"] = None
+            entry["authenticated"] = False
 
     async def _execute_with_lock(self, address: str, operation):
         """Acquire lock, ensure connection, run operation. Retry once on BLE error.
@@ -362,24 +433,31 @@ class BleBridgeManager:
         async with entry["lock"]:
             for attempt in range(2):  # 1 try + 1 retry
                 try:
-                    client = await self._ensure_connected(address)
-                    return await operation(client)
+                    async def _run_once():
+                        client = await self._ensure_connected(address)
+                        return await operation(client)
+
+                    return await self._bounded(
+                        _run_once(),
+                        BLE_OPERATION_TIMEOUT,
+                        f"BLE operation for {address}",
+                    )
                 except (BleakError, OSError, asyncio.TimeoutError) as exc:
+                    await self._disconnect(address, entry)
                     if attempt == 0:
                         _LOGGER.debug(
                             "BLE operation failed for %s, retrying: %s", address, exc,
                         )
-                        await self._disconnect(address, entry)
                     else:
                         raise
 
     # --- Poll Loop ---
 
-    def _next_delay(self, entry: dict) -> float:
+    def _next_delay(self, entry: dict, handler=None) -> float:
         """Healthy cadence when no failures, otherwise capped backoff (B-4)."""
         fc = entry["failure_count"]
         if fc <= 0:
-            return BLE_POLL_INTERVAL
+            return getattr(handler, "poll_interval", BLE_POLL_INTERVAL)
         idx = min(fc - 1, len(BLE_BACKOFF_SCHEDULE) - 1)
         return BLE_BACKOFF_SCHEDULE[idx]
 
@@ -426,7 +504,7 @@ class BleBridgeManager:
 
             # Sleep OUTSIDE the lock so commands can run between polls. A reconnect
             # command sets the wake event to retry immediately.
-            delay = self._next_delay(entry)
+            delay = self._next_delay(entry, handler)
             try:
                 await asyncio.wait_for(entry["wake"].wait(), timeout=delay)
             except asyncio.TimeoutError:
@@ -438,11 +516,25 @@ class BleBridgeManager:
         entry = self._active_devices.get(address)
         if not entry:
             return
+        recovered = entry["failure_count"] > 0
         entry["failure_count"] = 0
-        now = datetime.now(timezone.utc).isoformat()
+        now_monotonic = time.monotonic()
+        last_diagnostic = entry.get("last_success_diagnostic", 0.0)
+        publish_diagnostic = (
+            recovered
+            or entry["availability"] != PAYLOAD_ONLINE
+            or now_monotonic - last_diagnostic >= BLE_POLL_INTERVAL
+        )
 
-        await self._publish(TOPIC_LAST_SUCCESS, device_type, address, now, retain=True)
-        await self._publish(TOPIC_FAILURE_COUNT, device_type, address, "0", retain=True)
+        if publish_diagnostic:
+            now = datetime.now(timezone.utc).isoformat()
+            await self._publish(
+                TOPIC_LAST_SUCCESS, device_type, address, now, retain=True
+            )
+            await self._publish(
+                TOPIC_FAILURE_COUNT, device_type, address, "0", retain=True
+            )
+            entry["last_success_diagnostic"] = now_monotonic
 
         if entry["availability"] != PAYLOAD_ONLINE:
             entry["availability"] = PAYLOAD_ONLINE
@@ -514,7 +606,7 @@ class BleBridgeManager:
             _LOGGER.warning("Command failed for %s: %s", address, exc)
 
     async def _on_reconnect(self, msg):
-        """Schedule an immediate retry for a device (F-6)."""
+        """Replace the connection and poll task for a device immediately (F-6)."""
         parts = msg.topic.split("/")
         if len(parts) < 5:
             return
@@ -525,9 +617,16 @@ class BleBridgeManager:
             _LOGGER.warning("Reconnect for unknown device: %s/%s", device_type, address)
             return
         _LOGGER.info("Manual reconnect requested for %s", address)
-        entry["failure_count"] = 0          # retry at normal cadence
+        handler = entry["handler"]
+        await self._cancel_poll_task(entry, address)
         await self._disconnect(address, entry)
-        entry["wake"].set()                 # break the backoff sleep now
+        if self._active_devices.get(address) is not entry or self._stopping:
+            return
+
+        entry["failure_count"] = 0
+        entry["lock"] = asyncio.Lock()
+        entry["wake"] = asyncio.Event()
+        self._start_poll_task(handler, address)
 
     async def _on_clear_errors(self, msg):
         """Clear failure/availability state for a device (F-6)."""

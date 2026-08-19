@@ -2,6 +2,17 @@ DOMAIN = "librecoach_ble"
 CONFIG_PATH = "/config/.librecoach-ble-config.json"
 BLE_POLL_INTERVAL = 30  # seconds between BLE device polls when healthy
 
+# Every authentication, poll, and command must yield control within this
+# window. A BLE backend can otherwise leave a GATT await pending forever and
+# prevent the poll loop, diagnostics, and recovery controls from progressing.
+BLE_OPERATION_TIMEOUT = 45
+
+# Recovery must not depend on a wedged BLE backend cooperating with disconnect
+# or task cancellation. These bounds let the bridge discard the cached client
+# and replace its polling task even when cleanup cannot finish normally.
+BLE_DISCONNECT_TIMEOUT = 10
+BLE_TASK_CANCEL_TIMEOUT = 5
+
 # Backoff schedule (seconds) applied after consecutive poll failures. The last
 # value is the cap and is reused for all further failures. Retries continue
 # forever while the device/integration is enabled (B-4).

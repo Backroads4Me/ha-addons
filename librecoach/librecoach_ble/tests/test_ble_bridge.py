@@ -11,6 +11,7 @@ from librecoach_ble.bridge import BleBridgeManager
 from librecoach_ble.devices.base import BleDeviceHandler, StateMessage, AuthenticationError
 from librecoach_ble.devices.microair import MicroAirHandler
 from librecoach_ble import const
+from librecoach_ble import bridge as bridge_mod
 
 
 def run(coro):
@@ -291,6 +292,8 @@ def test_b4_backoff_progression():
     mgr = BleBridgeManager(FakeHass(), {})
     entry = {"failure_count": 0}
     assert mgr._next_delay(entry) == const.BLE_POLL_INTERVAL
+    fast_handler = type("FastHandler", (), {"poll_interval": 1})()
+    assert mgr._next_delay(entry, fast_handler) == 1
     seen = []
     for fc in range(1, 8):
         entry["failure_count"] = fc
@@ -298,6 +301,312 @@ def test_b4_backoff_progression():
     assert seen[:4] == const.BLE_BACKOFF_SCHEDULE
     # caps at the last value
     assert seen[-1] == const.BLE_BACKOFF_SCHEDULE[-1]
+
+
+def test_healthy_diagnostics_are_not_published_at_fast_device_cadence(monkeypatch):
+    conftest.reset_recorders()
+    mgr = BleBridgeManager(FakeHass(), {})
+    addr = "aa:bb"
+    mgr._active_devices[addr] = {
+        "failure_count": 0,
+        "availability": const.PAYLOAD_ONLINE,
+        "last_error": const.ERROR_NONE,
+        "last_success_diagnostic": 100.0,
+    }
+    monkeypatch.setattr(bridge_mod.time, "monotonic", lambda: 101.0)
+
+    run(mgr._on_poll_success("hughes", addr))
+
+    assert conftest.PUBLISHED == []
+
+
+# --- B-4/F-6: bounded operations and recovery from wedged BLE awaits ---
+
+class _ConnectedClient:
+    def __init__(self, hang_disconnect=False):
+        self.is_connected = True
+        self.disconnect_calls = 0
+        self._hang_disconnect = hang_disconnect
+
+    async def disconnect(self):
+        self.disconnect_calls += 1
+        if self._hang_disconnect:
+            await asyncio.Event().wait()
+        self.is_connected = False
+
+
+def _active_entry(handler, client=None):
+    return {
+        "handler": handler,
+        "task": None,
+        "ble_device": object(),
+        "client": client,
+        "lock": asyncio.Lock(),
+        "authenticated": client is not None,
+        "failure_count": 0,
+        "availability": None,
+        "last_error": const.ERROR_NONE,
+        "wake": asyncio.Event(),
+    }
+
+
+def test_operation_timeout_retries_disconnects_and_releases_lock(monkeypatch):
+    monkeypatch.setattr(bridge_mod, "BLE_OPERATION_TIMEOUT", 0.01)
+    monkeypatch.setattr(bridge_mod, "BLE_DISCONNECT_TIMEOUT", 0.01)
+
+    client = _ConnectedClient()
+    mgr = BleBridgeManager(FakeHass(), {})
+    address = "aa:bb"
+    entry = _active_entry(object(), client)
+    mgr._active_devices[address] = entry
+    operation_calls = 0
+
+    async def ensure_connected(_address):
+        entry["client"] = client
+        client.is_connected = True
+        return client
+
+    async def never_returns(_client):
+        nonlocal operation_calls
+        operation_calls += 1
+        await asyncio.Event().wait()
+
+    monkeypatch.setattr(mgr, "_ensure_connected", ensure_connected)
+
+    async def scenario():
+        try:
+            await mgr._execute_with_lock(address, never_returns)
+        except asyncio.TimeoutError:
+            pass
+        else:  # pragma: no cover - protects the timeout assertion
+            raise AssertionError("wedged BLE operation did not time out")
+
+    run(scenario())
+
+    assert operation_calls == 2
+    assert client.disconnect_calls == 2
+    assert entry["client"] is None
+    assert entry["authenticated"] is False
+    assert entry["lock"].locked() is False
+
+
+def test_disconnect_timeout_still_discards_cached_client(monkeypatch):
+    monkeypatch.setattr(bridge_mod, "BLE_DISCONNECT_TIMEOUT", 0.01)
+
+    client = _ConnectedClient(hang_disconnect=True)
+    mgr = BleBridgeManager(FakeHass(), {})
+    address = "aa:bb"
+    entry = _active_entry(object(), client)
+    mgr._active_devices[address] = entry
+
+    run(mgr._disconnect(address, entry))
+
+    assert client.disconnect_calls == 1
+    assert entry["client"] is None
+    assert entry["authenticated"] is False
+
+
+def test_cancelling_bounded_operation_cancels_its_child():
+    mgr = BleBridgeManager(FakeHass(), {})
+
+    async def scenario():
+        child_started = asyncio.Event()
+        child_stopped = asyncio.Event()
+
+        async def child():
+            child_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                child_stopped.set()
+
+        outer = asyncio.create_task(mgr._bounded(child(), 60, "test operation"))
+        await child_started.wait()
+        outer.cancel()
+        try:
+            await outer
+        except asyncio.CancelledError:
+            pass
+
+        await child_stopped.wait()
+
+    run(scenario())
+
+
+def test_authentication_timeout_can_disconnect_new_client(monkeypatch):
+    monkeypatch.setattr(bridge_mod, "BLE_OPERATION_TIMEOUT", 0.01)
+    monkeypatch.setattr(bridge_mod, "BLE_DISCONNECT_TIMEOUT", 0.01)
+
+    class HangingHandler:
+        async def authenticate(self, _client):
+            await asyncio.Event().wait()
+
+    client = _ConnectedClient()
+    mgr = BleBridgeManager(FakeHass(), {})
+    address = "aa:bb"
+    entry = _active_entry(HangingHandler())
+    mgr._active_devices[address] = entry
+
+    async def establish(*_args, **_kwargs):
+        client.is_connected = True
+        return client
+
+    monkeypatch.setattr(bridge_mod, "establish_connection", establish)
+    monkeypatch.setattr(mgr, "_get_ble_device", lambda _address: object())
+
+    async def operation(_client):  # pragma: no cover - auth never completes
+        raise AssertionError("operation ran before authentication completed")
+
+    async def scenario():
+        try:
+            await mgr._execute_with_lock(address, operation)
+        except asyncio.TimeoutError:
+            pass
+        else:  # pragma: no cover - protects the timeout assertion
+            raise AssertionError("wedged authentication did not time out")
+
+    run(scenario())
+
+    assert client.disconnect_calls == 2
+    assert entry["client"] is None
+    assert entry["authenticated"] is False
+
+
+def test_ensure_connected_does_not_reuse_unauthenticated_client(monkeypatch):
+    class Handler:
+        async def authenticate(self, _client):
+            return True
+
+    stale_client = _ConnectedClient()
+    fresh_client = _ConnectedClient()
+    mgr = BleBridgeManager(FakeHass(), {})
+    address = "aa:bb"
+    entry = _active_entry(Handler(), stale_client)
+    entry["authenticated"] = False
+    mgr._active_devices[address] = entry
+
+    async def establish(*_args, **_kwargs):
+        return fresh_client
+
+    monkeypatch.setattr(bridge_mod, "establish_connection", establish)
+    monkeypatch.setattr(mgr, "_get_ble_device", lambda _address: object())
+
+    result = run(mgr._ensure_connected(address))
+
+    assert stale_client.disconnect_calls == 1
+    assert result is fresh_client
+    assert entry["client"] is fresh_client
+    assert entry["authenticated"] is True
+
+
+def test_poll_timeout_updates_connectivity_diagnostics(monkeypatch):
+    conftest.reset_recorders()
+    monkeypatch.setattr(bridge_mod, "BLE_OPERATION_TIMEOUT", 0.01)
+    monkeypatch.setattr(bridge_mod, "BLE_DISCONNECT_TIMEOUT", 0.01)
+
+    class HangingHandler:
+        @staticmethod
+        def device_type():
+            return "microair"
+
+        async def poll(self, _client):
+            await asyncio.Event().wait()
+
+    handler = HangingHandler()
+    client = _ConnectedClient()
+    mgr = BleBridgeManager(FakeHass(), {})
+    address = "aa:bb"
+    entry = _active_entry(handler, client)
+    entry["wake"].set()
+    mgr._active_devices[address] = entry
+
+    async def ensure_connected(_address):
+        entry["client"] = client
+        client.is_connected = True
+        return client
+
+    monkeypatch.setattr(mgr, "_ensure_connected", ensure_connected)
+    record_failure = mgr._on_poll_failure
+
+    async def stop_after_failure(device_type, failed_address, exc, error_kind):
+        await record_failure(device_type, failed_address, exc, error_kind)
+        mgr._stopping = True
+
+    monkeypatch.setattr(mgr, "_on_poll_failure", stop_after_failure)
+
+    run(mgr._poll_loop(handler, address))
+
+    assert entry["failure_count"] == 1
+    assert entry["last_error"] == const.ERROR_CONNECTIVITY
+    assert any(
+        item["topic"].endswith("/failure_count") and item["payload"] == "1"
+        for item in conftest.PUBLISHED
+    )
+    assert any(
+        item["topic"].endswith("/last_error")
+        and item["payload"] == const.ERROR_CONNECTIVITY
+        for item in conftest.PUBLISHED
+    )
+
+
+def test_reconnect_replaces_poll_task_after_hung_disconnect(monkeypatch):
+    monkeypatch.setattr(bridge_mod, "BLE_DISCONNECT_TIMEOUT", 0.01)
+    monkeypatch.setattr(bridge_mod, "BLE_TASK_CANCEL_TIMEOUT", 0.01)
+
+    class RunningHass(FakeHass):
+        def async_create_task(self, coro):
+            return asyncio.create_task(coro)
+
+    class Handler:
+        @staticmethod
+        def device_type():
+            return "microair"
+
+    async def scenario():
+        client = _ConnectedClient(hang_disconnect=True)
+        mgr = BleBridgeManager(RunningHass(), {})
+        address = "aa:bb"
+        handler = Handler()
+        old_lock = asyncio.Lock()
+        old_started = asyncio.Event()
+        replacement_started = asyncio.Event()
+        replacement_release = asyncio.Event()
+
+        async def old_poll():
+            old_started.set()
+            await asyncio.Event().wait()
+
+        async def replacement_poll(_handler, _address):
+            replacement_started.set()
+            await replacement_release.wait()
+
+        old_task = asyncio.create_task(old_poll())
+        entry = _active_entry(handler, client)
+        entry["task"] = old_task
+        entry["lock"] = old_lock
+        entry["failure_count"] = 4
+        mgr._active_devices[address] = entry
+        monkeypatch.setattr(mgr, "_poll_loop", replacement_poll)
+
+        await old_started.wait()
+        msg = type("Msg", (), {
+            "topic": f"librecoach/ble/microair/{address}/reconnect"
+        })()
+        await mgr._on_reconnect(msg)
+        await replacement_started.wait()
+
+        replacement_task = entry["task"]
+        assert old_task.cancelled()
+        assert replacement_task is not old_task
+        assert replacement_task.done() is False
+        assert entry["failure_count"] == 0
+        assert entry["client"] is None
+        assert entry["lock"] is not old_lock
+
+        replacement_release.set()
+        await replacement_task
+
+    run(scenario())
 
 
 # --- B-4/B-5: offline published once on transition; auth distinct from connectivity ---

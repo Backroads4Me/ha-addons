@@ -39,7 +39,7 @@ with **All components installed successfully!**
 Newly discovered RV-C entities have generic names. Identify them by operating
 known physical controls and watching Home Assistant, then rename and assign
 areas to the matching entities. Do not operate an unknown entity merely to find
-out what it controls. See [Identifying Your Devices](https://librecoach.com/configuration/dentify-devices/) for the recommended process.
+out what it controls. See [Identifying Your Devices](https://librecoach.com/configuration/identify-devices/) for the recommended process.
 
 ---
 

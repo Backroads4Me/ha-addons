@@ -14,21 +14,27 @@ RUN pip install --no-cache-dir --break-system-packages \
     websockets==16.0
 
 # Bundle the Node-RED project at the exact revision recorded in node-red.ref.
+# Only the files the add-on consumes at runtime are bundled — this tree is rsynced to
+# /share/.librecoach, so anything copied here lands on the user's system.
 # Keep flows_cred.json — contains MQTT credentials encrypted with "librecoach" as credential_secret
 COPY node-red.ref /tmp/node-red.ref
 RUN NODE_RED_REF="$(tr -d '\r\n' < /tmp/node-red.ref)" && \
     [ "${#NODE_RED_REF}" -eq 40 ] && \
     case "$NODE_RED_REF" in *[!0-9a-f]*) exit 1 ;; esac && \
-    git init /opt/librecoach-project && \
-    git -C /opt/librecoach-project remote add origin https://github.com/Backroads4Me/librecoach-node-red && \
-    git -C /opt/librecoach-project fetch --depth 1 origin "$NODE_RED_REF" && \
-    git -C /opt/librecoach-project checkout --detach FETCH_HEAD && \
-    [ "$(git -C /opt/librecoach-project rev-parse HEAD)" = "$NODE_RED_REF" ] && \
-    test -f /opt/librecoach-project/artifact/flows.json && \
-    test -f /opt/librecoach-project/flows_cred.json && \
+    git init /tmp/node-red-src && \
+    git -C /tmp/node-red-src remote add origin https://github.com/Backroads4Me/librecoach-node-red && \
+    git -C /tmp/node-red-src fetch --depth 1 origin "$NODE_RED_REF" && \
+    git -C /tmp/node-red-src checkout --detach FETCH_HEAD && \
+    [ "$(git -C /tmp/node-red-src rev-parse HEAD)" = "$NODE_RED_REF" ] && \
+    mkdir -p /opt/librecoach-project/artifact && \
+    for f in artifact/flows.json flows_cred.json package.json LICENSE; do \
+        test -f "/tmp/node-red-src/$f" || exit 1; \
+        cp "/tmp/node-red-src/$f" "/opt/librecoach-project/$f" || exit 1; \
+    done && \
+    test -d /tmp/node-red-src/data && \
+    cp -r /tmp/node-red-src/data /opt/librecoach-project/data && \
     cp /tmp/node-red.ref /opt/librecoach-project/.librecoach-node-red-ref && \
-    rm -rf /opt/librecoach-project/.git && \
-    rm -f /opt/librecoach-project/.gitignore /opt/librecoach-project/.gitattributes /tmp/node-red.ref
+    rm -rf /tmp/node-red-src /tmp/node-red.ref
 
 # --- Final stage: runtime only ---
 FROM $BUILD_FROM

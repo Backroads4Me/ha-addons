@@ -2,7 +2,7 @@
 
 This app is part of the LibreCoach project. Contributions require signing the Contributor License Agreement (CLA) before a PR can be merged.
 
-Scope: The CLA applies only to LibreCoach in this repository. It does not apply to other apps (for example, `can-mqtt-bridge`).
+Scope: The CLA applies to the LibreCoach app in this repository.
 
 The CLA check is managed via CLA Assistant:
 https://cla-assistant.io/

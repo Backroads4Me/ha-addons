@@ -810,19 +810,6 @@ _See LibreCoach addon logs for more details_" \
 	dismiss_notification "librecoach_mqtt_setup"
 	bashio::log.info "   MQTT integration is configured"
 
-	# Legacy cleanup: disable old CAN-MQTT Bridge add-on if present
-	SLUG_CAN_BRIDGE="3b081c96_can-mqtt-bridge"
-	if is_installed "$SLUG_CAN_BRIDGE"; then
-		bashio::log.info "Migrating from standalone CAN-MQTT Bridge"
-		# Intentionally non-fatal: legacy bridge may already be stopped.
-		if is_running "$SLUG_CAN_BRIDGE"; then
-			api_call POST "/addons/$SLUG_CAN_BRIDGE/stop" "" >/dev/null 2>&1
-		fi
-		api_call POST "/addons/$SLUG_CAN_BRIDGE/options" '{"boot":"manual","watchdog":false}' >/dev/null 2>&1
-		bashio::log.info "CAN-MQTT Bridge disabled. The vehicle_bridge now handles CAN."
-		bashio::log.info "You may uninstall can-mqtt-bridge from Settings → Add-ons."
-	fi
-
 	# Publish config toggles as retained MQTT messages for Node-RED
 	# Auth flags built as an array so credentials with spaces/metacharacters work,
 	# and so no-auth mode (empty user/pass) cleanly omits -u/-P.
