@@ -1,3 +1,27 @@
+### 1.5.2 (Aug 19, 2026)
+
+✨ New
+
+- Automatic transfer switch support: RV-C enabled transfer switches now report which source is in use. Sources are labeled Generator and Shore where the coach reports them.
+- Victron alarms that report warning separately from alarm now appear as problem sensors
+- Supported Gen 2 Hughes Power Watchdogs now expose per-line electrical and fault diagnostics, stored error history, neutral monitoring, shore-power relay control, and backlight control
+
+🛠️ Improvements
+
+- Tank levels hold steady: a tank sitting on a sender boundary no longer flips back and forth
+- Redundant prefixes removed from LibreCoach system entity names
+- Victron entities keep their identity when a GX service restarts
+- Further refined Victron rounding to keep readings at a sensible precision
+
+🐛 Fixes
+
+- Micro-Air diagnostic entities no longer duplicate on multi-zone thermostats
+- Furnace commands now reach the furnace
+- Dimmers no longer report on while their actual state is unknown
+- Generator engine load now reports the correct percentage
+- Sensor faults and out-of-range readings across RV-C entities now show as unavailable instead of implausible numbers
+- More reliable address claim and RV-C polling, which improves how consistently devices answer on the bus
+
 ### 1.5.1 (Aug 8, 2026)
 
 🐛 Fixes
@@ -15,8 +39,8 @@
 
 🛠️ Improvements
 
-- MQTT delivery is more dependable for discovery, states, and commands
-- Improved Aqua-Hot status reporting
+- MQTT delivery is more dependable for Home Assistant discovery, states, and commands
+- Improved Aqua-Hot status reporting for both native and Silverleaf-interfaced systems
 - Victron battery time-to-go now reports in hours, and reports unavailable when the GX is not calculating a remaining time
 - Entities recover on their own after an MQTT reconnect instead of staying unavailable until a restart
 
