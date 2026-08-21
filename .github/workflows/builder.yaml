@@ -85,8 +85,56 @@ jobs:
             echo "Changed add-ons: $changed"
           fi
 
-  build:
+  version-check:
+    name: Check version against changelog
     needs: init
+    runs-on: ubuntu-latest
+    if: needs.init.outputs.changed != '[]'
+    strategy:
+      matrix:
+        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      # A release that adds features is a minor bump, not a patch. 1.5.2 shipped
+      # three new entity groups under a patch number because nothing checked.
+      # The changelog already states the answer, so compare against it.
+      - name: config.yaml version matches the newest changelog entry
+        run: |
+          set -euo pipefail
+          addon="${{ matrix.addon }}"
+          cfg=$(yq -r '.version' "$addon/config.yaml")
+          mapfile -t vers < <(grep -oP '^### \K[0-9]+\.[0-9]+\.[0-9]+' "$addon/CHANGELOG.md")
+          newest="${vers[0]}"
+          if [ "$cfg" != "$newest" ]; then
+            echo "::error::config.yaml is $cfg but the newest CHANGELOG entry is $newest"
+            exit 1
+          fi
+          echo "version $cfg matches the changelog"
+
+      - name: A release with new features is a minor bump
+        run: |
+          set -euo pipefail
+          addon="${{ matrix.addon }}"
+          mapfile -t vers < <(grep -oP '^### \K[0-9]+\.[0-9]+\.[0-9]+' "$addon/CHANGELOG.md")
+          newest="${vers[0]}"; prev="${vers[1]:-0.0.0}"
+          # Body of the newest entry only, i.e. up to the next "### " heading.
+          body=$(awk '/^### /{n++} n==1' "$addon/CHANGELOG.md")
+          IFS=. read -r nmaj nmin _ <<< "$newest"
+          IFS=. read -r pmaj pmin _ <<< "$prev"
+          if grep -q '✨ New' <<< "$body"; then
+            if [ "$nmaj" = "$pmaj" ] && [ "$nmin" = "$pmin" ]; then
+              echo "::error::$newest declares new features but is only a patch bump over $prev"
+              exit 1
+            fi
+            echo "$newest declares features and bumps the minor over $prev"
+          else
+            echo "$newest declares no new features; any bump is fine"
+          fi
+
+  build:
+    needs: [init, version-check]
     runs-on: ubuntu-latest
     if: needs.init.outputs.changed != '[]'
     name: Build ${{ matrix.addon }} add-on

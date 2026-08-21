@@ -1,4 +1,4 @@
-### 1.5.2 (Aug 19, 2026)
+### 1.6.0 (Aug 21, 2026)
 
 ✨ New
 
@@ -21,6 +21,12 @@
 - Generator engine load now reports the correct percentage
 - Sensor faults and out-of-range readings across RV-C entities now show as unavailable instead of implausible numbers
 - More reliable address claim and RV-C polling, which improves how consistently devices answer on the bus
+
+### 1.5.2 (Aug 19, 2026)
+
+Released with an incorrect version number and superseded by 1.6.0. It carried new
+features, which make it a minor release rather than a patch. Everything it
+contained is listed under 1.6.0 above.
 
 ### 1.5.1 (Aug 8, 2026)
 
