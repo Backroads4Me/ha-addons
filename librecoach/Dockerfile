@@ -17,13 +17,19 @@ RUN pip install --no-cache-dir --break-system-packages \
 # Only the files the add-on consumes at runtime are bundled — this tree is rsynced to
 # /share/.librecoach, so anything copied here lands on the user's system.
 # Keep flows_cred.json — contains MQTT credentials encrypted with "librecoach" as credential_secret
+# librecoach-node-red is private, so the fetch authenticates with a BuildKit secret;
+# passing it as a header keeps the token out of the image layers and the remote config.
 COPY node-red.ref /tmp/node-red.ref
-RUN NODE_RED_REF="$(tr -d '\r\n' < /tmp/node-red.ref)" && \
+RUN --mount=type=secret,id=node_red_token \
+    NODE_RED_REF="$(tr -d '\r\n' < /tmp/node-red.ref)" && \
     [ "${#NODE_RED_REF}" -eq 40 ] && \
     case "$NODE_RED_REF" in *[!0-9a-f]*) exit 1 ;; esac && \
+    NODE_RED_TOKEN="$(tr -d '\r\n' < /run/secrets/node_red_token)" && \
+    AUTH="$(printf 'x-access-token:%s' "$NODE_RED_TOKEN" | base64 -w0)" && \
     git init /tmp/node-red-src && \
     git -C /tmp/node-red-src remote add origin https://github.com/Backroads4Me/librecoach-node-red && \
-    git -C /tmp/node-red-src fetch --depth 1 origin "$NODE_RED_REF" && \
+    git -C /tmp/node-red-src -c http.extraheader="AUTHORIZATION: Basic $AUTH" \
+        fetch --depth 1 origin "$NODE_RED_REF" && \
     git -C /tmp/node-red-src checkout --detach FETCH_HEAD && \
     [ "$(git -C /tmp/node-red-src rev-parse HEAD)" = "$NODE_RED_REF" ] && \
     mkdir -p /opt/librecoach-project/artifact && \

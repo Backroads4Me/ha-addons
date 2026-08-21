@@ -243,6 +243,8 @@ jobs:
           build-args: |
             BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
+          secrets: |
+            node_red_token=${{ secrets.NODE_RED_TOKEN }}
           provenance: false
 
       - name: Build addon (test mode for PRs)
@@ -256,4 +258,6 @@ jobs:
           build-args: |
             BUILD_FROM=${{ steps.build_args.outputs.build_from }}
             BUILD_VERSION=${{ steps.info.outputs.version }}
+          secrets: |
+            node_red_token=${{ secrets.NODE_RED_TOKEN }}
           provenance: false
