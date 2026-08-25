@@ -19,8 +19,60 @@ on:
   #  - cron: "0 3 * * 0"
 
 jobs:
+  mirror-drift:
+    name: LibreCoach matches beta
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out production
+        uses: actions/checkout@v6
+        with:
+          path: repos/ha-addons
+
+      - name: Check out beta main
+        uses: actions/checkout@v6
+        with:
+          repository: Backroads4Me/ha-addons-beta
+          ref: main
+          path: repos/ha-addons-beta
+
+      - name: Check for pending mirror changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mirror_output="$(repos/ha-addons-beta/beta-notes/mirror.sh)" || {
+            status=$?
+            printf '%s\n' "$mirror_output"
+            exit "$status"
+          }
+          printf '%s\n' "$mirror_output"
+
+          # rsync itemization uses "t" for timestamp-only differences. Git
+          # checkouts have unrelated timestamps, so those do not represent drift.
+          if awk '
+            /^\*deleting / { drift = 1; next }
+            length($0) >= 12 && substr($0, 12, 1) == " " &&
+              substr($0, 2, 1) ~ /^[fdLDS]$/ {
+                attrs = substr($0, 3, 9)
+                gsub(/[.tT]/, "", attrs)
+                if (attrs != "") drift = 1
+              }
+            END { exit drift ? 0 : 1 }
+          ' <<< "$mirror_output"; then
+            echo "::error::Production librecoach/ differs from beta main. Run the mirror locally and review the reported changes."
+            exit 1
+          fi
+
+          if grep -Fq '⚠' <<< "$mirror_output"; then
+            echo "::error::The mirror reported a config or translation consistency problem."
+            exit 1
+          fi
+
   init:
     name: Initialize builds
+    needs: mirror-drift
     runs-on: ubuntu-latest
     outputs:
       changed_addons: ${{ steps.changed_addons.outputs.addons }}
