@@ -6,6 +6,9 @@ permissions:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  # Production publishes unsuffixed images. package_name() omits the trailing
+  # hyphen when this is empty; beta sets it to "beta".
+  IMAGE_SUFFIX: ""
 
 on:
   push:
@@ -15,8 +18,21 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Rebuild every add-on, even versions already published (overwrites those tags)"
+        type: boolean
+        default: false
   #schedule:
   #  - cron: "0 3 * * 0"
+
+# Publishing is a read-modify-write against the registry: a run decides what is
+# missing, then writes it. Two overlapping runs can both see the same gap and
+# race to publish the same tag from different commits. Serialize per ref, and
+# never cancel a run mid-publish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   mirror-drift:
@@ -74,79 +90,159 @@ jobs:
     name: Initialize builds
     needs: mirror-drift
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
     outputs:
       changed_addons: ${{ steps.changed_addons.outputs.addons }}
       changed: ${{ steps.changed_addons.outputs.changed }}
+      targets: ${{ steps.changed_addons.outputs.targets }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Find add-on directories with changes
+      # A push builds whatever config.yaml declares but the registry does not
+      # yet carry. The question is about state, not about this push's diff, so
+      # the answer stays true until the image exists: a push whose build never
+      # ran (a failed gate, a skipped job) is repaired by the next push instead
+      # of being lost with the diff that carried the version bump.
+      #
+      # Selection is per (add-on, arch) rather than per add-on. A version is not
+      # one artifact — it is one image per arch — so selecting the whole add-on
+      # when a single arch is missing would rebuild and overwrite the arch that
+      # published successfully. Only the missing arch is rebuilt.
+      - name: Find add-ons to build
         id: changed_addons
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE: ${{ github.event.inputs.force }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.sha }}
+          IMAGE_SUFFIX: ${{ env.IMAGE_SUFFIX }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
         run: |
-          declare -a changed_addons
-          build_all=false
+          set -euo pipefail
 
-          echo "Event type: ${{ github.event_name }}"
+          # Must match the arch list the build matrix derives from targets.
+          ARCHES=(aarch64 amd64)
 
-          # Manual trigger and scheduled builds build all
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]] || \
-             [[ "${{ github.event_name }}" == "schedule" ]]; then
-            echo "Manual/scheduled trigger - building all addons"
-            build_all=true
-          fi
+          package_name() {
+            printf '%s-%s%s' "$1" "$2" "${IMAGE_SUFFIX:+-$IMAGE_SUFFIX}"
+          }
 
-          echo "build_all=$build_all"
-          echo "Searching for addons..."
+          # A 404 on one package is ambiguous: the package may not exist yet, or
+          # this token may simply not be allowed to see it. Only a package query
+          # that actually succeeded proves the token can read this owner's
+          # packages, so 404s are recorded and judged after the loop, once it is
+          # known whether any query succeeded at all. (The obvious probe —
+          # listing the owner's packages — is not usable: GITHUB_TOKEN gets
+          # HTTP 400 from /users/{owner}/packages, while the per-package
+          # versions endpoint below works, linked repository or not.)
+          registry_readable=false
 
-          # Find all addons
-          for addon in $(find . -maxdepth 1 -type d -not -path '*/\.*' -not -path '.' | cut -d'/' -f2); do
-            echo "Checking directory: $addon"
-            # Skip non-addon directories
-            if [[ "$addon" == "docs" ]] || [[ "$addon" == ".github" ]]; then
-              continue
-            fi
+          # 0 = published, 1 = 404, 2 = present but this version absent.
+          # Any other failure exits.
+          tag_published() {
+            local package=$1 version=$2 out status
+            out=$(gh api --paginate \
+                    "/users/$OWNER/packages/container/$package/versions" \
+                    --jq '.[].metadata.container.tags[]' 2>&1) && status=0 || status=$?
 
-            # Check if addon has config.yaml
-            if [[ -f "$addon/config.yaml" ]]; then
-              if [[ "$build_all" == "true" ]]; then
-                # Build all addons
-                echo "Adding $addon to build queue"
-                changed_addons+=("\"$addon\"")
-              elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
-                # A pull request has no "before" commit — that field belongs to
-                # push events — so the range has to come from the PR base. A PR
-                # also publishes nothing, so the release signal (a version bump)
-                # is the wrong question here: validate whatever the PR touches.
-                if ! git diff --quiet \
-                       "${{ github.event.pull_request.base.sha }}...${{ github.sha }}" \
-                       -- "$addon/"; then
-                  echo "$addon changed in this pull request - triggering build"
-                  changed_addons+=("\"$addon\"")
-                fi
-              else
-                # Check if config.yaml in this addon changed (version bump indicates release)
-                if git diff --name-only ${{ github.event.before }} ${{ github.sha }} 2>/dev/null | grep -q "^$addon/config\.yaml$"; then
-                  echo "config.yaml changed in $addon - triggering build"
-                  changed_addons+=("\"$addon\"")
-                fi
+            if [ "$status" -ne 0 ]; then
+              if grep -q 'HTTP 404' <<< "$out"; then
+                return 1
               fi
+              # 401, 403, 5xx: fail loudly rather than read it as absent, or an
+              # outage would rebuild over a live tag.
+              echo "::error::could not query ghcr for $package: $out"
+              exit 1
             fi
+
+            registry_readable=true
+            grep -Fxq "$version" <<< "$out" && return 0
+            return 2
+          }
+
+          targets=()
+          addons=()
+          unseen=()   # "addon arch version package": 404, verdict deferred
+
+          queue() {
+            echo "queueing $1 $3 for $2"
+            targets+=("$(jq -cn --arg addon "$1" --arg arch "$2" \
+                          '{addon: $addon, arch: $arch}')")
+          }
+
+          for config in */config.yaml; do
+            addon=${config%%/*}
+            [[ "$addon" == "docs" || "$addon" == ".github" ]] && continue
+            version=$(yq -r '.version' "$config")
+
+            for arch in "${ARCHES[@]}"; do
+              case "$EVENT_NAME" in
+                pull_request)
+                  # PRs validate the tree and never push tags, so the registry
+                  # says nothing useful about them; build whatever the PR
+                  # touches.
+                  git diff --quiet "$BASE_SHA...$HEAD_SHA" -- "$addon/" && continue
+                  queue "$addon" "$arch" "$version"
+                  continue
+                  ;;
+                workflow_dispatch)
+                  # A plain dispatch repairs what is missing. Overwriting a
+                  # published tag is destructive, so it takes an explicit force.
+                  if [ "$FORCE" = "true" ]; then
+                    queue "$addon" "$arch" "$version"
+                    continue
+                  fi
+                  ;;
+              esac
+
+              package=$(package_name "$arch" "$addon")
+              tag_published "$package" "$version" && continue || status=$?
+
+              if [ "$status" -eq 1 ]; then
+                unseen+=("$addon $arch $version $package")
+              else
+                queue "$addon" "$arch" "$version"
+              fi
+            done
           done
 
-          changed=$(printf ",%s" "${changed_addons[@]}")
-          changed="[${changed:1}]"
-
-          echo "changed=${changed}" >> $GITHUB_OUTPUT
-          echo "addons=${changed}" >> $GITHUB_OUTPUT
-
-          if [ "$changed" == "[]" ]; then
-            echo "No add-on changes detected"
-          else
-            echo "Changed add-ons: $changed"
+          # Every 404 is now either a package that has genuinely never been
+          # published, or a package this token cannot see. If no query in this
+          # run succeeded, there is no way to tell them apart — refuse rather
+          # than risk republishing over a tag that is actually live. Publishing
+          # a brand new package for the first time is the legitimate case, and
+          # it goes through a forced dispatch.
+          if [ ${#unseen[@]} -gt 0 ] && [ "$registry_readable" != true ]; then
+            echo "::error::no package query succeeded, so these 404s cannot be" \
+                 "distinguished from packages this token cannot see:"
+            printf '::error::  %s\n' "${unseen[@]}"
+            echo "::error::If this is a first-ever publish, re-run with force enabled."
+            exit 1
           fi
+
+          for entry in ${unseen[@]+"${unseen[@]}"}; do
+            read -r addon arch version _ <<< "$entry"
+            queue "$addon" "$arch" "$version"
+          done
+
+          # version-check runs per add-on, so reduce the targets to the distinct
+          # add-ons they cover. Guarded: printf with no arguments would still
+          # emit one empty line and yield a bogus [""].
+          if [ ${#targets[@]} -gt 0 ]; then
+            mapfile -t addons < <(printf '%s\n' "${targets[@]}" | jq -r '.addon' | sort -u)
+          fi
+
+          changed=$(jq -cn --args '$ARGS.positional' ${addons[@]+"${addons[@]}"})
+          echo "changed=${changed}" >> "$GITHUB_OUTPUT"
+          echo "addons=${changed}" >> "$GITHUB_OUTPUT"
+          printf '%s\n' ${targets[@]+"${targets[@]}"} | jq -cs . \
+            | sed 's/^/targets=/' >> "$GITHUB_OUTPUT"
 
   version-check:
     name: Check version against changelog
@@ -199,15 +295,16 @@ jobs:
   build:
     needs: [init, version-check]
     runs-on: ubuntu-latest
-    if: needs.init.outputs.changed != '[]'
+    if: needs.init.outputs.targets != '[]'
     name: Build ${{ matrix.addon }} add-on
     permissions:
       contents: read
       packages: write
     strategy:
+      # Exact (add-on, arch) pairs, not a cross product: an arch that is already
+      # published must not be rebuilt just because its sibling is missing.
       matrix:
-        addon: ${{ fromJson(needs.init.outputs.changed_addons) }}
-        arch: ["aarch64", "amd64"]
+        include: ${{ fromJson(needs.init.outputs.targets) }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v6
@@ -324,3 +421,64 @@ jobs:
           secrets: |
             node_red_token=${{ secrets.NODE_RED_TOKEN }}
           provenance: false
+
+  # The selection job can only skip a build it believes is already published,
+  # and skipped jobs report success. Without this, a run that published nothing
+  # is indistinguishable from a run that published everything.
+  published:
+    name: Declared version is published
+    needs: [init, build]
+    # Runs even when build was skipped, which is exactly the case it guards.
+    if: always() && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Every declared version has an image for every arch
+        env:
+          IMAGE_SUFFIX: ${{ env.IMAGE_SUFFIX }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          ARCHES=(aarch64 amd64)
+          missing=0
+
+          for config in */config.yaml; do
+            addon=${config%%/*}
+            [[ "$addon" == "docs" || "$addon" == ".github" ]] && continue
+            version=$(yq -r '.version' "$config")
+
+            for arch in "${ARCHES[@]}"; do
+              package=$(printf '%s-%s%s' "$arch" "$addon" "${IMAGE_SUFFIX:+-$IMAGE_SUFFIX}")
+
+              # Capture before matching. Piping into `grep -q` under pipefail
+              # reports failure even on a match, because grep exits at the first
+              # hit and gh dies on SIGPIPE.
+              tags=$(gh api --paginate \
+                       "/users/$OWNER/packages/container/$package/versions" \
+                       --jq '.[].metadata.container.tags[]' 2>&1) && status=0 || status=$?
+
+              # "I could not ask" is not "it was never published". Report the
+              # two differently, or a token or outage looks like a failed
+              # release and sends someone hunting the wrong problem.
+              if [ "$status" -ne 0 ] && ! grep -q 'HTTP 404' <<< "$tags"; then
+                echo "::error::could not verify $package:$version against ghcr: $tags"
+                missing=1
+                continue
+              fi
+
+              if [ "$status" -eq 0 ] && grep -Fxq "$version" <<< "$tags"; then
+                echo "$package:$version present"
+              else
+                echo "::error::$package:$version was never published"
+                missing=1
+              fi
+            done
+          done
+
+          exit "$missing"
