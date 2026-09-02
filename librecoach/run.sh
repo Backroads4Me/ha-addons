@@ -20,7 +20,9 @@ run_orchestrator() {
 	SLUG_NODERED="a0d7b954_nodered"
 
 	# State file to track LibreCoach management
-	STATE_FILE="/data/.librecoach-state.json"
+	DATA_DIR="/data"
+	STATE_FILE="$DATA_DIR/.librecoach-state.json"
+	NODERED_INSTALL_PENDING_FILE="$DATA_DIR/.librecoach-nodered-install-pending.json"
 	ADDON_VERSION=$(bashio::addon.version)
 
 	# Wait for /data/options.json to exist before reading config.
@@ -112,6 +114,51 @@ run_orchestrator() {
 		fi
 	}
 
+	ensure_homeassistant_www() {
+		local config_dir=${HOMEASSISTANT_CONFIG_DIR:-/config}
+		HOMEASSISTANT_WWW_CREATED=false
+
+		if [ ! -d "$config_dir/www" ]; then
+			mkdir -p "$config_dir/www"
+			HOMEASSISTANT_WWW_CREATED=true
+		fi
+	}
+
+	# The import page is served by Node-RED on port 1880, which Home Assistant
+	# cannot link to directly: the coach is reached by hostname, mDNS name, or
+	# IP depending on the client. This page is served by Home Assistant from
+	# /local and forwards the browser to port 1880 on the host it is already
+	# using. The /endpoint prefix is the Node-RED add-on's unauthenticated
+	# proxy path, so the owner is not asked to sign in.
+	write_import_redirect_page() {
+		local config_dir=${HOMEASSISTANT_CONFIG_DIR:-/config}
+		local page="$config_dir/www/librecoach_import.html"
+
+		cat >"$page" <<-'IMPORT_PAGE'
+			<!DOCTYPE html>
+			<html lang="en">
+			<head>
+			<meta charset="UTF-8">
+			<title>LibreCoach — Import Configuration</title>
+			<style>
+			  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+			         background: #1a1a2e; color: #e0e0e0; padding: 2rem; }
+			  a { color: #4fc3f7; }
+			</style>
+			</head>
+			<body>
+			<p>Opening the LibreCoach import page…</p>
+			<p>If nothing happens, <a id="link" href="#">open it here</a>.</p>
+			<script>
+			var target = "http://" + window.location.hostname + ":1880/endpoint/librecoach/import";
+			document.getElementById("link").href = target;
+			window.location.replace(target);
+			</script>
+			</body>
+			</html>
+		IMPORT_PAGE
+	}
+
 	# Run a command that must succeed. On failure, log a clear fatal message and
 	# abort startup so we never continue with partial deployment state.
 	run_required() {
@@ -124,55 +171,100 @@ run_orchestrator() {
 		fi
 	}
 
+	# Keys whose values must never reach the log. Add-on option payloads carry
+	# Mosquitto logins, the Node-RED credential_secret, and MicroAir credentials;
+	# debug_logging is a support-facing switch, so its output is treated as shareable.
+	SECRET_KEYS='["password","mqtt_user","mqtt_pass","credential_secret","microair_password","microair_email","users","logins","secret","token"]'
+
+	# Recursively replace the value of any sensitive key with a placeholder.
+	# Unparseable input is reduced to a byte count rather than echoed.
+	redact_json() {
+		local raw=$1
+		if [ -z "$raw" ]; then
+			echo "(empty)"
+			return
+		fi
+		echo "$raw" | jq -c --argjson keys "$SECRET_KEYS" '
+			def scrub:
+				if type == "object" then
+					with_entries(.key as $k | if ($keys | index($k)) then .value = "***" else .value |= scrub end)
+				elif type == "array" then map(scrub)
+				else . end;
+			scrub' 2>/dev/null || echo "(${#raw} bytes, not JSON)"
+	}
+
+	# Supervisor calls that only read or set state answer quickly. Calls that pull a
+	# container image block for as long as the pull takes, so those callers raise
+	# API_TIMEOUT for the duration of the request.
+	API_TIMEOUT_DEFAULT=30
+	API_TIMEOUT_IMAGE_PULL=1800
+
 	api_call() {
 		local method=$1
 		local endpoint=$2
 		local data=${3:-}
+		local timeout=${API_TIMEOUT:-$API_TIMEOUT_DEFAULT}
 
 		log_debug "API Call: $method $endpoint"
 		if [ -n "$data" ]; then
-			log_debug "API Data: $data"
-			local response=$(curl -s --connect-timeout 5 -m 30 -X "$method" -H "$AUTH_HEADER" -H "Content-Type: application/json" -d "$data" "$SUPERVISOR$endpoint")
+			log_debug "API Data: $(redact_json "$data")"
+			local response=$(curl -s --connect-timeout 5 -m "$timeout" -X "$method" -H "$AUTH_HEADER" -H "Content-Type: application/json" -d "$data" "$SUPERVISOR$endpoint")
 		else
-			local response=$(curl -s --connect-timeout 5 -m 30 -X "$method" -H "$AUTH_HEADER" "$SUPERVISOR$endpoint")
+			local response=$(curl -s --connect-timeout 5 -m "$timeout" -X "$method" -H "$AUTH_HEADER" "$SUPERVISOR$endpoint")
 		fi
+
+		# Responses are logged only for endpoints known to carry no credentials.
+		# Add-on info and options responses echo back logins and secrets.
+		case "$endpoint" in
+		/core/api/components)
+			log_debug "API Response: ${response:0:500}"
+			;;
+		esac
 
 		echo "$response"
 	}
 
+	# Exit codes:
+	#   0 — the MQTT integration is loaded
+	#   1 — Home Assistant answered and the MQTT integration is not loaded (user action)
+	#   2 — the Home Assistant API never returned a component list (environment fault)
+	# The caller must distinguish 1 from 2: the guidance and the notification differ.
 	check_mqtt_integration() {
 		bashio::log.info "   Checking for MQTT integration..."
 
-		# Wait up to 10 minutes for HA Core to fully boot (120 retries * 5s)
-		# HA Core can take several minutes to start on standard hardware after a host reboot.
+		# Wait up to 10 minutes for HA Core to return its loaded-component list.
+		# A valid list without MQTT means Home Assistant is ready and user action is required.
 		local retries=120
-		local logged_wait=false
+		local elapsed=0
 
 		while [ $retries -gt 0 ]; do
 			local response
 			response=$(api_call GET "/core/api/components")
 
-			if [ -n "$response" ] && ! echo "$response" | grep -q -E "502|Bad Gateway|Gateway|Error" >/dev/null 2>&1; then
-				# Only valid JSON array expected here. If it's valid JSON and contains "mqtt", we're good.
-				if echo "$response" | jq -e 'if type == "array" then index("mqtt") else false end' >/dev/null 2>&1; then
-					if [ "$logged_wait" = "true" ]; then
-						bashio::log.info "   MQTT integration found"
-					fi
+			if echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
+				if echo "$response" | jq -e 'index("mqtt")' >/dev/null 2>&1; then
+					bashio::log.info "   MQTT integration found"
 					return 0
 				fi
+
+				bashio::log.info "   Home Assistant is ready; MQTT integration setup is required"
+				return 1
 			fi
 
-			if [ "$logged_wait" = "false" ]; then
-				bashio::log.info "   Home Assistant is still starting. Waiting for MQTT component..."
-				logged_wait=true
+			# Report progress every 30s. A single "still starting" line followed by
+			# ten silent minutes is indistinguishable from a hung add-on.
+			if [ $((elapsed % 30)) -eq 0 ]; then
+				bashio::log.info "   Home Assistant API is not answering yet (${elapsed}s). Waiting for the component list..."
+				log_debug "Unusable /core/api/components response: ${response:0:200}"
 			fi
 
 			sleep 5
-			((retries--))
+			elapsed=$((elapsed + 5))
+			retries=$((retries - 1))
 		done
 
-		bashio::log.warning "   ⚠️  Timed out waiting for Home Assistant to start"
-		return 1
+		bashio::log.warning "   ⚠️  Home Assistant API did not return a component list within 10 minutes"
+		return 2
 	}
 
 	send_notification() {
@@ -187,7 +279,17 @@ run_orchestrator() {
 			--arg id "$notification_id" \
 			'{"title": $title, "message": $message, "notification_id": $id}')
 
-		api_call POST "/core/api/services/persistent_notification/create" "$payload" >/dev/null 2>&1
+		# The service call returns a JSON array of changed states (usually empty) on
+		# success and an object or empty body on failure. Anything that is not an
+		# array means the notification never reached the UI, so say so rather than
+		# leaving the user staring at a log that claims a notification was sent.
+		local response
+		response=$(api_call POST "/core/api/services/persistent_notification/create" "$payload")
+		if echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1; then
+			return 0
+		fi
+		log_debug "Notification failed: $(redact_json "$response")"
+		return 1
 	}
 
 	dismiss_notification() {
@@ -230,42 +332,102 @@ run_orchestrator() {
 		[ "$state" == "started" ]
 	}
 
+	# Waits for an install the Supervisor is still working on. Returns 0 once the store
+	# reports the add-on installed, 1 once the wait budget is spent.
+	wait_for_install() {
+		local slug=$1
+		local retries=60
+		while [ $retries -gt 0 ]; do
+			if get_addon_install_state "$slug"; then
+				return 0
+			fi
+			sleep 10
+			((retries--))
+		done
+		return 1
+	}
+
 	install_addon() {
 		local slug=$1
 		bashio::log.info "   Installing $slug"
 		local result
-		result=$(api_call POST "/store/addons/$slug/install")
+		result=$(API_TIMEOUT=$API_TIMEOUT_IMAGE_PULL api_call POST "/store/addons/$slug/install")
 		if echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
 			bashio::log.info "   Installed $slug"
-		else
-			local error_msg=$(echo "$result" | jq -r '.message')
-			bashio::log.error "   ❌ Failed to install $slug: $error_msg"
+			return 0
+		fi
 
-			# Special handling for Node-RED already installed
-			if [[ "$slug" == "$SLUG_NODERED" ]] && [[ "$error_msg" == *"already installed"* ]]; then
-				bashio::log.error ""
-				bashio::log.error "   Node-RED is already installed on your system."
-				bashio::log.error "   To use it with LibreCoach, you must grant permission:"
-				bashio::log.error ""
-				bashio::log.error "   1. Go to the LibreCoach add-on Configuration tab"
-				bashio::log.error "   2. Enable the 'Allow Node-RED Overwrite' option"
-				bashio::log.error "   3. Scroll down and click 'Save'"
-				bashio::log.error ""
-				bashio::log.error "   ⚠️  WARNING: This will replace your existing Node-RED flows with LibreCoach flows."
+		# An empty body means curl gave up before the Supervisor answered. The install
+		# itself keeps running, so poll the store rather than declaring failure.
+		if [ -z "$result" ]; then
+			bashio::log.info "   Still installing $slug; waiting for the Supervisor to finish"
+			if wait_for_install "$slug"; then
+				bashio::log.info "   Installed $slug"
+				return 0
 			fi
-
+			bashio::log.error "   ❌ Timed out waiting for $slug to install"
 			return 1
 		fi
+
+		local error_msg=$(echo "$result" | jq -r '.message // "unknown error"')
+		bashio::log.error "   ❌ Failed to install $slug: $error_msg"
+		return 1
+	}
+
+	# The Supervisor runs one job at a time per add-on and rejects a start or
+	# restart issued while another holds the lock, answering "Another job is
+	# running for job group app_<slug>". An add-on update still finishing in
+	# the background is the ordinary cause, so wait for the group to clear
+	# instead of aborting startup over work that is about to succeed.
+	JOB_LOCK_RETRIES=30
+	JOB_LOCK_WAIT=5
+
+	post_addon_action() {
+		local slug=$1
+		local action=$2
+		local retries=$JOB_LOCK_RETRIES
+		local result
+		local error_msg
+
+		while :; do
+			result=$(api_call POST "/addons/$slug/$action")
+
+			if echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
+				return 0
+			fi
+
+			error_msg=$(echo "$result" | jq -r '.message // "Unknown error"')
+
+			case "$error_msg" in
+			*"Another job is running"*) ;;
+			*)
+				bashio::log.error "   ❌ Failed to $action $slug. API Response: $error_msg"
+				return 1
+				;;
+			esac
+
+			# The job holding the group can be one that leaves the add-on
+			# running, which is the outcome this call was asking for.
+			if is_running "$slug"; then
+				return 0
+			fi
+
+			if [ $retries -le 0 ]; then
+				bashio::log.error "   ❌ Timed out waiting for the Supervisor to finish its work on $slug"
+				return 1
+			fi
+
+			bashio::log.info "   Supervisor is busy with $slug; waiting to $action it"
+			sleep $JOB_LOCK_WAIT
+			((retries--))
+		done
 	}
 
 	start_addon() {
 		local slug=$1
 		bashio::log.info "   Starting $slug"
-		local result
-		result=$(api_call POST "/addons/$slug/start")
 
-		if ! echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
-			bashio::log.error "   ❌ Failed to start $slug. API Response: $(echo "$result" | jq -r '.message // "Unknown error"')"
+		if ! post_addon_action "$slug" start; then
 			return 1
 		fi
 
@@ -300,11 +462,8 @@ run_orchestrator() {
 	restart_addon() {
 		local slug=$1
 		#bashio::log.info "   Restarting $slug"
-		local result
-		result=$(api_call POST "/addons/$slug/restart")
 
-		if ! echo "$result" | jq -e '.result == "ok"' >/dev/null 2>&1; then
-			bashio::log.error "   ❌ Failed to restart $slug. API Response: $(echo "$result" | jq -r '.message // "Unknown error"')"
+		if ! post_addon_action "$slug" restart; then
 			return 1
 		fi
 
@@ -387,6 +546,117 @@ run_orchestrator() {
 	# ========================
 	# State Management
 	# ========================
+	# Exit codes:
+	#   0 — installed
+	#   1 — not installed
+	#   2 — the Supervisor did not return an authoritative store record
+	get_addon_install_state() {
+		local slug=$1
+		local response
+		response=$(api_call GET "/store/addons/$slug")
+
+		if ! echo "$response" | jq -e \
+			'.result == "ok" and (.data.installed | type == "boolean")' >/dev/null 2>&1; then
+			log_debug "No authoritative install state for $slug: $(redact_json "$response")"
+			return 2
+		fi
+
+		if echo "$response" | jq -e '.data.installed == true' >/dev/null 2>&1; then
+			return 0
+		fi
+		return 1
+	}
+
+	# LibreCoach cannot read Node-RED's data volume, so an untouched installation is
+	# recognized from its add-on record: no credential secret, so Node-RED has never
+	# stored credentials; no init commands, so nothing has configured it; no
+	# authentication users, because configuring the add-on deletes that option and an
+	# owner's login is theirs to keep; and it is not running. There is no user
+	# configuration to replace, so it needs no takeover permission. Takes a
+	# /addons/<slug>/info response.
+	nodered_is_unconfigured() {
+		local info=$1
+		local state secret init_commands users
+
+		state=$(echo "$info" | jq -r '.data.state // "unknown"')
+		[ "$state" != "started" ] || return 1
+
+		secret=$(echo "$info" | jq -r '.data.options.credential_secret // ""')
+		[ -z "$secret" ] || return 1
+
+		init_commands=$(echo "$info" | jq '(.data.options.init_commands // []) | length')
+		[ "$init_commands" = "0" ] || return 1
+
+		users=$(echo "$info" | jq '(.data.options.users // []) | length')
+		[ "$users" = "0" ] || return 1
+
+		return 0
+	}
+
+	classify_nodered_install_state() {
+		local install_status=$1
+		local managed=$2
+		local pending=$3
+
+		case "$install_status:$managed:$pending" in
+		0:true:*) echo "managed" ;;
+		0:false:true) echo "resume" ;;
+		0:false:false) echo "preexisting" ;;
+		1:*:*) echo "install" ;;
+		2:*:*) echo "unknown" ;;
+		*) return 1 ;;
+		esac
+	}
+
+	mark_nodered_install_pending() {
+		local pending_tmp="${NODERED_INSTALL_PENDING_FILE}.tmp"
+		mkdir -p "$DATA_DIR"
+		jq -n \
+			--arg slug "$SLUG_NODERED" \
+			--arg version "$ADDON_VERSION" \
+			--arg started_at "$(date -Iseconds)" \
+			'{owner: "librecoach", slug: $slug, version: $version, started_at: $started_at}' \
+			>"$pending_tmp"
+		chmod 600 "$pending_tmp"
+		mv "$pending_tmp" "$NODERED_INSTALL_PENDING_FILE"
+	}
+
+	# The marker claims an install this add-on started and did not get to finish, and
+	# that claim licenses adopting the installation without asking. It is only
+	# credible while the interrupted install is recent: a marker left by a crash
+	# outlives the install it describes, and the Node-RED sitting there months later
+	# may be one the owner installed and configured themselves. An expired marker is
+	# ignored, so that installation is classified as pre-existing and asked about.
+	is_nodered_install_pending() {
+		local max_age=86400
+
+		[ -f "$NODERED_INSTALL_PENDING_FILE" ] || return 1
+		jq -e --arg slug "$SLUG_NODERED" \
+			'.owner == "librecoach" and .slug == $slug' \
+			"$NODERED_INSTALL_PENDING_FILE" >/dev/null 2>&1 || return 1
+
+		local started_at started_epoch age
+		started_at=$(jq -r '.started_at // ""' "$NODERED_INSTALL_PENDING_FILE")
+
+		# A marker written before started_at was recorded, or carrying a timestamp
+		# this image's date cannot parse, states no age. Age is what makes the claim
+		# credible, so an unreadable one is treated as expired rather than trusted.
+		[ -n "$started_at" ] || return 1
+		started_epoch=$(date -d "$started_at" +%s 2>/dev/null) || return 1
+		[ -n "$started_epoch" ] || return 1
+
+		age=$(($(date +%s) - started_epoch))
+		# A clock that moved backwards since the marker was written yields a negative
+		# age. That is not evidence the install is old, so it stays credible.
+		[ "$age" -le "$max_age" ] || return 1
+
+		return 0
+	}
+
+	clear_nodered_install_pending() {
+		rm -f "$NODERED_INSTALL_PENDING_FILE" "${NODERED_INSTALL_PENDING_FILE}.tmp"
+	}
+
 	is_nodered_managed() {
 		if [ ! -f "$STATE_FILE" ]; then
 			return 1
@@ -398,10 +668,11 @@ run_orchestrator() {
 
 	mark_nodered_managed() {
 		local current_hash=$1
+		local state_tmp="${STATE_FILE}.tmp"
 		[ -z "$current_hash" ] && current_hash=$(get_flows_hash)
 
-		mkdir -p /data
-		cat >"$STATE_FILE" <<EOF
+		mkdir -p "$DATA_DIR"
+		cat >"$state_tmp" <<EOF
 {
   "nodered_managed": true,
   "version": "$ADDON_VERSION",
@@ -410,6 +681,9 @@ run_orchestrator() {
   "last_update": "$(date -Iseconds)"
 }
 EOF
+		chmod 600 "$state_tmp"
+		mv "$state_tmp" "$STATE_FILE"
+		clear_nodered_install_pending
 		bashio::log.info "   Marked Node-RED as managed by LibreCoach"
 	}
 
@@ -445,11 +719,13 @@ EOF
 		jq -r '.prevent_flow_updates // ""' "$STATE_FILE"
 	}
 
-	# Ensure this addon starts on boot.
-	# The self-watchdog is intentionally NOT enabled here — if setup fails or pauses
-	# (e.g., waiting for the MQTT integration), an enabled watchdog turns that into a
-	# Supervisor restart crash loop. It is enabled at the end of a successful setup.
-	api_call POST "/addons/self/options" '{"boot":"auto"}' >/dev/null
+	# Keep this add-on enabled for boot while setup is incomplete, but explicitly
+	# disable its watchdog so a user-action pause or environment fault stays paused.
+	# Successful setup enables the watchdog at the end of this script.
+	SELF_STARTUP_OPTIONS_RESULT=$(api_call POST "/addons/self/options" '{"boot":"auto","watchdog":false}')
+	if ! echo "$SELF_STARTUP_OPTIONS_RESULT" | jq -e '.result == "ok"' >/dev/null 2>&1; then
+		bashio::log.warning "   Could not disable the LibreCoach watchdog during setup"
+	fi
 
 	# Clean stale config keys left in the Supervisor's internal option store from previous releases.
 	# The Supervisor generates /data/options.json for the addon (stripping unknown keys), but keeps
@@ -744,14 +1020,19 @@ print(json.dumps(c))
 	# Validate MQTT Integration
 	bashio::log.info "   Validating MQTT integration..."
 
-	if ! check_mqtt_integration; then
-		# Send persistent notification to Home Assistant UI
-		send_notification \
-			"⚠️ LibreCoach: MQTT Integration Required" \
-			"**LibreCoach installation is paused!**
+	check_mqtt_integration && MQTT_CHECK_STATUS=0 || MQTT_CHECK_STATUS=$?
+
+	if [ "$MQTT_CHECK_STATUS" -ne 0 ]; then
+		notify_mqtt_setup() {
+			# Deliberately not called while MQTT_CHECK_STATUS is 2: with no component
+			# list there is no evidence the MQTT integration is what is missing, and
+			# the notification would send the user to Discovered for no reason.
+			send_notification \
+				"LibreCoach: MQTT Setup Required" \
+				"**LibreCoach installation needs one setup step.**
 
 ✅ Mosquitto broker is installed and running
-⚠️ But MQTT integration needs to be configured
+MQTT integration needs to be enabled
 
 **Quick Setup (30 seconds):**
 
@@ -759,51 +1040,133 @@ print(json.dumps(c))
 2. Look for **MQTT** in the 'Discovered' section
 3. Click **ADD** on the MQTT card
 4. Click **SUBMIT** to use Mosquitto broker
-5. Return to **Settings → Add-ons → LibreCoach** and click **RESTART**
+5. Return to **Settings → Add-ons → LibreCoach** and watch the log
+
+**After SUBMIT, Home Assistant Core restarts to apply the change.**
+It is normal to briefly lose connection to Home Assistant. Wait a few
+minutes and refresh your browser if necessary.
+
+Setup resumes automatically within one minute of Home Assistant coming back.
+Restart LibreCoach if it does not resume.
 
 **Why?** The MQTT integration listens for device discovery messages and creates entities automatically.
 
 _See LibreCoach addon logs for more details_" \
-			"librecoach_mqtt_setup"
+				"librecoach_mqtt_setup"
+		}
 
-		# Also log to addon logs
-		bashio::log.error ""
-		bashio::log.error "╔════════════════════════════════════════════════════════════╗"
-		bashio::log.error "║   ⚠️  MQTT INTEGRATION REQUIRED  ⚠️                        ║"
-		bashio::log.error "╚════════════════════════════════════════════════════════════╝"
-		bashio::log.error ""
-		bashio::log.error "   ✅ Mosquitto broker is installed and running"
-		bashio::log.error "   ⚠️  But MQTT integration needs to be configured"
-		bashio::log.error ""
-		bashio::log.error "   Quick Setup (takes 30 seconds):"
-		bashio::log.error ""
-		bashio::log.error "   1. Go to Settings → Devices & Services"
-		bashio::log.error "   2. Look for MQTT in the 'Discovered' section"
-		bashio::log.error "   3. Click ADD on the MQTT card"
-		bashio::log.error "   4. Click SUBMIT to use Mosquitto broker"
-		bashio::log.error "   5. Return to Settings → Add-ons → LibreCoach and click RESTART"
-		bashio::log.error ""
-		bashio::log.error "   Check the notification in Home Assistant UI (🔔 bell icon)"
-		bashio::log.error ""
-		bashio::log.warning "   ⏳ Waiting for MQTT integration. Setup resumes automatically once it is configured."
+		MQTT_NOTIFIED=false
+	fi
+
+	# ---- Status 2: the component list never arrived --------------------------
+	# Nothing here mentions MQTT setup. Until a component list is in hand, the
+	# missing integration is an assumption, not a finding. This loop resolves
+	# status 2 into status 0 or 1, then falls through to the block below.
+	if [ "$MQTT_CHECK_STATUS" -eq 2 ]; then
+		bashio::log.warning ""
+		bashio::log.warning "   ⚠️  Home Assistant did not respond to the LibreCoach API check."
+		bashio::log.warning "   LibreCoach cannot read Home Assistant's list of loaded integrations,"
+		bashio::log.warning "   so it cannot yet tell whether anything needs to be set up."
+		bashio::log.warning ""
+		bashio::log.warning "   Check, in order:"
+		bashio::log.warning "   1. Home Assistant Core is running and reachable."
+		bashio::log.warning "   2. Settings → Add-ons → LibreCoach → Configuration: enable"
+		bashio::log.warning "      'debug_logging', then Restart to log the API response."
+		bashio::log.warning ""
+		bashio::log.warning "   LibreCoach keeps polling and continues on its own once the API answers."
 		bashio::log.warning ""
 
-		# Keep the process alive and poll instead of exiting — exiting here used to
-		# trigger a Supervisor watchdog restart crash loop. The self-watchdog is not
-		# enabled until setup completes, but staying alive also lets setup resume
-		# without user intervention the moment the integration appears.
+		# Stay alive rather than exiting: the self-watchdog is still disabled, and
+		# exiting here would leave the add-on stopped with setup half-applied.
+		_api_wait_minutes=0
+		while true; do
+			sleep 60
+			_components=$(api_call GET "/core/api/components")
+
+			if echo "$_components" | jq -e 'type == "array"' >/dev/null 2>&1; then
+				bashio::log.info "   Home Assistant API is answering."
+				if echo "$_components" | jq -e 'index("mqtt")' >/dev/null 2>&1; then
+					MQTT_CHECK_STATUS=0
+				else
+					MQTT_CHECK_STATUS=1
+				fi
+				break
+			fi
+
+			_api_wait_minutes=$((_api_wait_minutes + 1))
+			if [ $((_api_wait_minutes % 5)) -eq 0 ]; then
+				bashio::log.warning "   Still no response from the Home Assistant API (${_api_wait_minutes} minutes)."
+			fi
+		done
+		unset _components
+
+		if [ "$MQTT_CHECK_STATUS" -eq 0 ]; then
+			bashio::log.info "   MQTT integration is already enabled. Resuming setup."
+		fi
+	fi
+
+	# ---- Status 1: Home Assistant answered, MQTT integration is missing ------
+	if [ "$MQTT_CHECK_STATUS" -eq 1 ]; then
+		if notify_mqtt_setup; then
+			MQTT_NOTIFIED=true
+		fi
+
+		# Also log to addon logs
+		bashio::log.info ""
+		bashio::log.info "╔════════════════════════════════════════════════════════════╗"
+		bashio::log.info "║                 MQTT SETUP REQUIRED                        ║"
+		bashio::log.info "╚════════════════════════════════════════════════════════════╝"
+		bashio::log.info ""
+		bashio::log.info "   ✅ Mosquitto broker is installed and running"
+		bashio::log.info "   MQTT integration needs to be enabled"
+		bashio::log.info ""
+		bashio::log.info "   Quick Setup (takes 30 seconds):"
+		bashio::log.info ""
+		bashio::log.info "   1. Go to Settings → Devices & Services"
+		bashio::log.info "   2. Look for MQTT in the 'Discovered' section"
+		bashio::log.info "   3. Click ADD on the MQTT card"
+		bashio::log.info "   4. Click SUBMIT to use Mosquitto broker"
+		bashio::log.info "   5. Return to Settings → Add-ons → LibreCoach and watch the log"
+		bashio::log.info "      Setup resumes automatically within one minute. Restart only if it does not resume."
+		bashio::log.info ""
+		if [ "$MQTT_NOTIFIED" = "true" ]; then
+			bashio::log.info "   Check the notification in Home Assistant UI (🔔 bell icon)"
+		else
+			bashio::log.info "   The matching Home Assistant notification could not be created."
+			bashio::log.info "   Follow the steps above from this log; LibreCoach retries the notification."
+		fi
+		bashio::log.info ""
+		bashio::log.info "   Waiting for MQTT integration. Setup resumes automatically once it is configured."
+		bashio::log.info ""
+
+		# Keep the process alive and poll so the Supervisor does not start a watchdog
+		# restart loop. The self-watchdog stays disabled until setup completes, and
+		# polling lets setup resume when the integration appears.
 		_mqtt_wait_minutes=0
 		while true; do
 			sleep 60
-			if api_call GET "/core/api/components" | jq -e 'if type == "array" then index("mqtt") else false end' >/dev/null 2>&1; then
-				bashio::log.info "   MQTT integration detected. Resuming setup."
-				break
+			_components=$(api_call GET "/core/api/components")
+
+			if echo "$_components" | jq -e 'type == "array"' >/dev/null 2>&1; then
+				if echo "$_components" | jq -e 'index("mqtt")' >/dev/null 2>&1; then
+					bashio::log.info "   MQTT integration detected. Resuming setup."
+					break
+				fi
+
+				# Retry a notification that failed to post — otherwise the user waits
+				# on a prompt that never appeared in the UI.
+				if [ "$MQTT_NOTIFIED" != "true" ] && notify_mqtt_setup; then
+					MQTT_NOTIFIED=true
+					bashio::log.info "   MQTT setup notification sent."
+				fi
 			fi
+
 			_mqtt_wait_minutes=$((_mqtt_wait_minutes + 1))
 			if [ $((_mqtt_wait_minutes % 10)) -eq 0 ]; then
-				bashio::log.warning "   ⏳ Still waiting for MQTT integration (${_mqtt_wait_minutes} minutes). See setup steps above."
+				bashio::log.info "   Still waiting for MQTT integration (${_mqtt_wait_minutes} minutes). See setup steps above."
 			fi
 		done
+		unset _components
 	fi
 
 	# MQTT is configured - dismiss any previous setup notifications
@@ -877,8 +1240,17 @@ _See LibreCoach addon logs for more details_" \
 		bashio::log.info "   Added $GITIGNORE_ENTRY to /config/.gitignore"
 	fi
 
-	# Install/update integration files (only restart if code actually changed)
+	# Home Assistant registers /local during frontend startup when www exists.
+	# Ensure first-time exports are available after the coordinated restart below.
 	NEEDS_HA_RESTART=false
+	ensure_homeassistant_www
+	if [ "$HOMEASSISTANT_WWW_CREATED" = "true" ]; then
+		bashio::log.info "   Created Home Assistant www directory for LibreCoach exports"
+		NEEDS_HA_RESTART=true
+	fi
+	write_import_redirect_page
+
+	# Install/update integration files (only restart if code actually changed)
 
 	# Define a hash function that ignores HA runtime files (.translations) and OS hidden files
 	get_integration_hash() {
@@ -955,26 +1327,72 @@ _See LibreCoach addon logs for more details_" \
 	NODERED_ALREADY_INSTALLED=false
 	MIGRATION_DETECTED=false
 
-	if is_installed "$SLUG_NODERED"; then
+	get_addon_install_state "$SLUG_NODERED" && NODERED_INSTALL_STATUS=0 || NODERED_INSTALL_STATUS=$?
+	NODERED_MANAGED=false
+	NODERED_INSTALL_PENDING=false
+	if is_nodered_managed; then
+		NODERED_MANAGED=true
+	fi
+	if is_nodered_install_pending; then
+		NODERED_INSTALL_PENDING=true
+	fi
+	NODERED_INSTALL_DISPOSITION=$(classify_nodered_install_state \
+		"$NODERED_INSTALL_STATUS" "$NODERED_MANAGED" "$NODERED_INSTALL_PENDING")
+
+	case "$NODERED_INSTALL_DISPOSITION" in
+	managed)
+		clear_nodered_install_pending
 		bashio::log.info "   Node-RED is already installed."
 		NODERED_ALREADY_INSTALLED=true
-	else
-		# Try to install Node-RED
+		;;
+	resume)
+		bashio::log.info "   Resuming LibreCoach's interrupted Node-RED installation"
+		MIGRATION_DETECTED=true
+		;;
+	preexisting)
+		if [ -f "$NODERED_INSTALL_PENDING_FILE" ]; then
+			bashio::log.warning "   Ignoring an invalid Node-RED installation marker"
+		fi
+		bashio::log.info "   Node-RED is already installed."
+		NODERED_ALREADY_INSTALLED=true
+		;;
+	install)
+		# A pending marker with no installed add-on represents an interrupted attempt
+		# before installation completed. Start a new owned attempt from a clean marker.
+		if [ -f "$NODERED_INSTALL_PENDING_FILE" ]; then
+			bashio::log.info "   Restarting an incomplete Node-RED installation attempt"
+			clear_nodered_install_pending
+		fi
+		mark_nodered_install_pending
 		bashio::log.info "   Node-RED not found. Installing"
 		if ! install_addon "$SLUG_NODERED"; then
-			# Installation failed - check if it's because it's already installed
-			nr_check=$(api_call GET "/addons/$SLUG_NODERED/info")
-			# Check if addon is actually installed (by checking for version field)
-			nr_version=$(echo "$nr_check" | jq -r '.data.version // empty')
-			if [ -n "$nr_version" ]; then
-				bashio::log.info "   Node-RED was already installed (detection issue)"
-				NODERED_ALREADY_INSTALLED=true
-			else
-				# Different error, exit
-				exit 1
-			fi
+			# Installation may complete even when the client misses the Supervisor's
+			# response. Re-read the authoritative store record before deciding.
+			get_addon_install_state "$SLUG_NODERED" && NODERED_RECHECK_STATUS=0 || NODERED_RECHECK_STATUS=$?
+			case "$NODERED_RECHECK_STATUS" in
+			0)
+				bashio::log.info "   Node-RED installation completed; resuming setup"
+				MIGRATION_DETECTED=true
+				;;
+			1)
+				clear_nodered_install_pending
+				bashio::log.fatal "   Node-RED installation failed and the add-on is not installed"
+				return 1
+				;;
+			2)
+				bashio::log.fatal "   Cannot verify whether Node-RED installation completed"
+				bashio::log.fatal "   The pending installation marker is preserved for the next start"
+				return 1
+				;;
+			esac
 		fi
-	fi
+		;;
+	unknown)
+		bashio::log.fatal "   Cannot determine whether Node-RED is installed"
+		bashio::log.fatal "   Home Assistant Supervisor did not return a valid Node-RED store record"
+		return 1
+		;;
+	esac
 
 	# If Node-RED was already installed, check if we need takeover permission
 	# Skip takeover check if already managed by LibreCoach
@@ -983,9 +1401,14 @@ _See LibreCoach addon logs for more details_" \
 		# point to LibreCoach, a previous version was managing it. Auto-create state file
 		# so upgrades don't re-prompt for takeover permission.
 		if ! is_nodered_managed; then
-			nr_init_check=$(api_call GET "/addons/$SLUG_NODERED/info" | jq -r '.data.options.init_commands[0] // empty')
+			nr_takeover_info=$(api_call GET "/addons/$SLUG_NODERED/info")
+			nr_init_check=$(echo "$nr_takeover_info" | jq -r '.data.options.init_commands[0] // empty')
 			if [[ "$nr_init_check" == *"librecoach"* ]]; then
 				bashio::log.info "   Migrating: previous LibreCoach version detected (init_commands present). Creating state file."
+				mark_nodered_managed "$(get_flows_hash)"
+				MIGRATION_DETECTED=true
+			elif nodered_is_unconfigured "$nr_takeover_info"; then
+				bashio::log.info "   Adopting an unconfigured Node-RED installation. Creating state file."
 				mark_nodered_managed "$(get_flows_hash)"
 				MIGRATION_DETECTED=true
 			fi
@@ -1010,7 +1433,7 @@ _See LibreCoach addon logs for more details_" \
 				bashio::log.warning "   3. Scroll down and click 'Save'."
 				bashio::log.warning "   4. Restart the LibreCoach add-on."
 				bashio::log.warning ""
-				send_notification \
+				if ! send_notification \
 					"⚠️ LibreCoach: Node-RED Setup Required" \
 					"**LibreCoach setup is paused — action required!**
 
@@ -1024,7 +1447,9 @@ An existing Node-RED installation was detected. LibreCoach needs to replace your
 5. **Restart** the LibreCoach add-on
 
 ⚠️ This will replace your existing Node-RED flows." \
-					"librecoach_nodered_takeover"
+					"librecoach_nodered_takeover"; then
+					bashio::log.warning "   Could not create the Node-RED setup notification; follow the log instructions"
+				fi
 				bashio::log.warning "   ⏸️  Setup paused. LibreCoach will not restart automatically."
 				bashio::log.warning "   After granting permission and saving, restart the add-on."
 				return 1
@@ -1040,9 +1465,8 @@ An existing Node-RED installation was detected. LibreCoach needs to replace your
 	PREVIOUS_PRESERVE_MODE=$(get_managed_preserve_mode)
 	FLOWS_HASH=$(get_flows_hash)
 
-	# Mark Node-RED as managed now, before configuration steps that may fail and trigger a watchdog
-	# restart. Without this, a failed restart_addon call causes the next run to see Node-RED as
-	# installed-but-unmanaged and incorrectly prompt for takeover permission.
+	# Persist ownership before configuration and restarts so every subsequent start
+	# can distinguish LibreCoach's Node-RED installation from a user installation.
 	mark_nodered_managed "$FLOWS_HASH"
 
 	# Configure Node-RED
@@ -1201,9 +1625,11 @@ An existing Node-RED installation was detected. LibreCoach needs to replace your
 	# Installation Summary
 	# ========================
 	bashio::log.info ""
-	bashio::log.info "     _     _ _                 ____                 _"
+	bashio::log.info "     _     _ _                ____                 _"
 	bashio::log.info "    | |   (_) |__  _ __ ___  / ___|___   __ _  ___| |__"
-	bashio::log.info "    | |   | | '_ \\| '__/ _ \\| |   / _ \\ / _\` |/ __| '_ \\\\"
+	# bashio renders messages with printf %b, so a trailing space separates the
+	# visible backslash from the color-reset escape appended by the logger.
+	bashio::log.info "    | |   | | '_ \\| '__/ _ \\| |   / _ \\ / _\` |/ __| '_ \\ "
 	bashio::log.info "    | |___| | |_) | | |  __/| |__| (_) | (_| | (__| | | |"
 	bashio::log.info "    |_____|_|_.__/|_|  \\___| \\____\\___/ \\__,_|\\___|_| |_|"
 	bashio::log.info ""

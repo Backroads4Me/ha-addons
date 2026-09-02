@@ -13,7 +13,8 @@ until Home Assistant is ready for MQTT discovery.
 If the log stops with a message that the MQTT integration is not yet enabled,
 LibreCoach needs you to complete this step. LibreCoach installs and configures
 the Mosquitto broker, but the MQTT integration must be manually enabled in Home
-Assistant before it can be used.
+Assistant before it can be used. LibreCoach also sends a persistent notification
+with these steps as soon as Home Assistant is reachable.
 
 1. Go to **Settings → Devices & services**.
 2. Find **MQTT** under **Discovered**, select **Add**, and then **Submit**.
@@ -23,6 +24,18 @@ Assistant before it can be used.
 
 If MQTT is not offered under Discovered, confirm that **Mosquitto broker** is
 running, then reload **Settings → Devices & services**.
+
+### Home Assistant API is not answering
+
+If the log repeats that the Home Assistant API is not answering yet, LibreCoach
+cannot read Home Assistant's list of loaded integrations, so it cannot tell
+whether MQTT is enabled. Enabling the MQTT integration will not clear this on
+its own.
+
+Confirm Home Assistant Core is running and healthy. To capture the API response
+for a bug report, enable **debug_logging** in the LibreCoach **Configuration**
+tab and click **Restart**. LibreCoach keeps polling and resumes on its own once
+the API answers.
 
 ### Existing Node-RED installation
 
@@ -90,7 +103,9 @@ restart and discards the active customized version.
 
 LibreCoach supplies and manages its own Node-RED flows. If Node-RED was already
 installed, setup stops rather than replace your existing flows without
-permission.
+permission. If LibreCoach is interrupted while installing Node-RED, the next
+start recognizes the pending installation and resumes without showing the
+existing-installation prompt.
 
 Before continuing, create a full Home Assistant backup. Then choose one path:
 
