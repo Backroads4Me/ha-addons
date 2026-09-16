@@ -1,3 +1,9 @@
+### 1.7.1 (Sep 16, 2026)
+
+🐛 Fixes
+
+- Thermostats whose first zone is numbered 0 now appear in Home Assistant.
+
 ### 1.7.0 (Sep 2, 2026)
 
 ✨ New
