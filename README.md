@@ -1,11 +1,11 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/Backroads4Me/librecoach-site/main/public/og-default-opt.png" alt="LibreCoach — open RV control with Home Assistant" width="720">
+  <img src="https://raw.githubusercontent.com/Backroads4Me/librecoach-site/main/public/og-default-opt.png" alt="LibreCoach: open RV control with Home Assistant" width="400">
 </p>
 
 # LibreCoach
 
 **Bring your RV's lights, climate, tanks, power systems, and more into Home
-Assistant—without replacing the factory controls you already rely on.**
+Assistant, without replacing the factory controls you already rely on.**
 
 [Website](https://librecoach.com/) ·
 [How it works](https://librecoach.com/start-here/what-is-librecoach/) ·
@@ -20,18 +20,17 @@ customize and maintain yourself.
 
 ![LibreCoach dashboards showing lighting, tanks, climate, and power](https://raw.githubusercontent.com/Backroads4Me/librecoach-site/main/src/assets/dashboards/dash_light.webp)
 
-## Why LibreCoach?
+## What It Does
 
-- **One interface for the whole RV.** Control and monitor lights, shades,
-  locks, pumps, tanks, climate, batteries, and other supported systems from a
-  phone, tablet, or browser.
-- **Automatic RV-C discovery.** Compatible devices appear in Home Assistant
-  without hand-written entity templates.
-- **Local and extensible.** Build dashboards, alerts, and automations on the
-  Home Assistant ecosystem instead of a vendor-locked touchscreen.
-- **Factory controls stay in place.** LibreCoach adds monitoring and
-  convenience control; it does not replace existing switches, panels, or
-  safety-critical controls.
+- Control and monitor lights, shades, locks, pumps, tanks, climate, batteries,
+  and other supported systems from a phone, tablet, or browser.
+- Compatible RV-C devices show up in Home Assistant on their own, without
+  hand-written entity templates.
+- Everything runs locally. You build dashboards, alerts, and automations in
+  Home Assistant instead of living with a vendor's touchscreen.
+- Your factory switches and panels stay in place. LibreCoach adds monitoring
+  and convenience control; it doesn't replace existing or safety-critical
+  controls.
 
 LibreCoach is intended for RVs with an RV-C based CAN network. Fully analog RVs
 and RVs using an unsupported proprietary network are not compatible. See
@@ -53,7 +52,7 @@ and connection to the RV-C network. Follow the
 [step-by-step build guide](https://librecoach.com/build/overview/) for hardware,
 assembly, software, and connection instructions.
 
-## Documentation and support
+## Documentation and Support
 
 - [Installation guide](https://librecoach.com/build/software/)
 - [Configuration guides](https://librecoach.com/configuration/identify-devices/)
