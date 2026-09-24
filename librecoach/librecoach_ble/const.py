@@ -18,6 +18,12 @@ BLE_TASK_CANCEL_TIMEOUT = 5
 # forever while the device/integration is enabled (B-4).
 BLE_BACKOFF_SCHEDULE = [30, 60, 120, 300]
 
+# A handler that sets reconnect_on_advertisement retries as soon as a failing
+# device advertises again, instead of waiting out its backoff. Attempts are
+# spaced at least this many seconds apart so a device that advertises but
+# will not connect is not hammered.
+BLE_ADVERTISEMENT_RECONNECT_INTERVAL = 10
+
 # Consecutive connectivity failures before a device is declared offline. Avoids
 # flapping on a single transient failure. Auth failures bypass this (declared at 1).
 OFFLINE_AFTER_FAILURES = 3

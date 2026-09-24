@@ -94,6 +94,10 @@ def v2_packet(message_type, payload=b""):
     )
 
 
+def test_watchdog_reconnects_as_soon_as_it_advertises():
+    assert HughesHandler.reconnect_on_advertisement is True
+
+
 def test_name_matching_covers_v1_v2_and_boosters():
     assert HughesHandler.match_name("PMD123")
     assert HughesHandler.match_name("WD_V5_123")
@@ -161,7 +165,9 @@ def test_v2_30a_frame_and_state_message():
     assert state["voltage_l1"] == 121.4
     assert state["energy_l1"] == 142.3
     assert state["error_code_l1"] == 0
-    assert state["relay_status"] == 0
+    assert "relay_status" not in state
+    assert state["neutral_monitoring"] is True
+    assert state["neutral_problem"] is False
     assert state["output_voltage"] is None
     assert state["supports_control"] is True
     message = handler.state_messages(state)[0]
@@ -189,9 +195,64 @@ def test_v2_50a_frame_decodes_line_two():
     assert state["error_code_l2"] == 8
     assert state["error_code"] == 8
     assert state["error_description_l2"] == "No neutral circuit detected"
-    assert state["neutral_detection_l1"] == 0
-    assert state["neutral_detection_l2"] == 1
-    assert state["neutral_detection"] == 1
+    # A lost neutral is the error code, whatever the monitoring setting says.
+    assert state["neutral_problem"] is True
+    # Monitoring counts as enabled only when every line reports it enabled.
+    assert state["neutral_monitoring"] is False
+
+
+# Frames captured from a WD_E5 on 50A shore power by the alpha probe.
+E5_MONITORING_ON = bytes.fromhex(
+    "2479774001190100440012cb3900002a56000ea31d017ebb4c000002ce00264ce2"
+    "050000000000177100000012d3fd00004e4d0005d76301206f100000009a001dd004"
+    "050000000000177100017121"
+)
+E5_MONITORING_BYPASSED = bytes.fromhex(
+    "2479774001910100440012c59f0000488800204494017ebcdc0000039d00264e1c"
+    "050100000000177000000012d78100004e3c0005d1ed01206f740000009a001dd052"
+    "050100000000177000017121"
+)
+
+
+def test_captured_e5_frame_decodes_power_factor_and_neutral_monitoring():
+    handler = HughesHandler("AA:BB", {"_device_name": "WD_E5_9e9e6e2e0ea9"})
+    state = handler.parse_status(E5_MONITORING_ON)
+
+    assert state["is_50a"] is True
+    assert state["voltage_l1"] == 123.1673
+    assert state["frequency_l1"] == 60.01
+    assert state["backlight"] == 5
+    assert state["power_factor_l1"] == 0.718
+    assert state["power_factor_l2"] == 0.154
+    assert abs(
+        state["power_factor_l1"]
+        - state["power_l1"] / (state["voltage_l1"] * state["current_l1"])
+    ) < 0.001
+    assert state["neutral_monitoring"] is True
+    assert state["neutral_problem"] is False
+    assert "relay_status" not in state
+
+
+def test_line_sums_carry_no_float_tail():
+    handler = HughesHandler("AA:BB", {"_device_name": "WD_E5_123"})
+    state = handler.parse_status(v2_frame(
+        v2_block(122.7739, 1.8202, 207.2069, 2508.4),
+        v2_block(123.5501, 1.9887, 49.9319, 1894.21),
+    ))
+
+    assert state["energy_kwh"] == 4402.61
+    assert json.dumps(state["energy_kwh"]) == "4402.61"
+    assert state["combined_power"] == 257.1388
+
+
+def test_captured_e5_frame_reports_neutral_monitoring_bypassed():
+    handler = HughesHandler("AA:BB", {"_device_name": "WD_E5_9e9e6e2e0ea9"})
+    state = handler.parse_status(E5_MONITORING_BYPASSED)
+
+    assert state["neutral_monitoring"] is False
+    # Bypassing monitoring is not a neutral fault.
+    assert state["neutral_problem"] is False
+    assert state["error_code"] == 0
 
 
 def test_booster_fields_are_gated_by_device_model():

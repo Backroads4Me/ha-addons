@@ -24,6 +24,7 @@ from .const import (
     TOPIC_RESET_LOCKS, TOPIC_RECONNECT, TOPIC_CLEAR_ERRORS,
     RETAINED_SCAN_WAIT,
     CONFIG_PATH, BLE_POLL_INTERVAL, BLE_BACKOFF_SCHEDULE, OFFLINE_AFTER_FAILURES,
+    BLE_ADVERTISEMENT_RECONNECT_INTERVAL,
     BLE_OPERATION_TIMEOUT, BLE_DISCONNECT_TIMEOUT, BLE_TASK_CANCEL_TIMEOUT,
     PAYLOAD_ONLINE, PAYLOAD_OFFLINE,
     ERROR_NONE, ERROR_AUTH_FAILED, ERROR_CONNECTIVITY,
@@ -284,7 +285,9 @@ class BleBridgeManager:
         address = service_info.address.lower()
 
         if address in self._active_devices:
-            self._active_devices[address]["ble_device"] = service_info.device
+            entry = self._active_devices[address]
+            entry["ble_device"] = service_info.device
+            self._reconnect_on_advertisement(entry)
             return
 
         for handler_class in DEVICE_HANDLERS:
@@ -331,6 +334,21 @@ class BleBridgeManager:
 
         # No handler claimed this advertisement.
         self._adv_ignored += 1
+
+    @staticmethod
+    def _reconnect_on_advertisement(entry: dict):
+        """Wake a failing device's poll loop now that it is advertising again.
+
+        Opt-in per handler. Auth failures are left to the backoff, because
+        retrying cannot fix rejected credentials.
+        """
+        if not getattr(entry["handler"], "reconnect_on_advertisement", False):
+            return
+        if entry["failure_count"] <= 0 or entry["last_error"] == ERROR_AUTH_FAILED:
+            return
+        if time.monotonic() - entry.get("last_attempt", 0.0) < BLE_ADVERTISEMENT_RECONNECT_INTERVAL:
+            return
+        entry["wake"].set()
 
     # --- Connection Management ---
 
@@ -467,6 +485,7 @@ class BleBridgeManager:
         entry = self._active_devices[address]
 
         while not self._stopping:
+            entry["last_attempt"] = time.monotonic()
             try:
                 async def _do_poll(client):
                     return await handler.poll(client)

@@ -30,6 +30,10 @@ class BleDeviceHandler(ABC):
 
     # --- Class-level attributes (set by each subclass) ---
 
+    # Retry as soon as a failing device advertises again instead of waiting out
+    # the backoff (see BLE_ADVERTISEMENT_RECONNECT_INTERVAL). Off by default.
+    reconnect_on_advertisement = False
+
     @staticmethod
     @abstractmethod
     def device_type() -> str:

@@ -654,3 +654,54 @@ def test_b4_recovery_publishes_online_on_transition():
               if p["topic"].endswith("/available") and p["payload"] == const.PAYLOAD_ONLINE]
     assert len(online) == 1
     assert mgr._active_devices[addr]["failure_count"] == 0
+
+
+# --- Reconnect on advertisement (opt-in per handler) ---
+
+class _Advert:
+    def __init__(self, address="AA:BB", name="Hughes"):
+        self.address = address
+        self.name = name
+        self.device = object()
+
+
+def _failing_entry(opted_in=True, failures=3, last_error=const.ERROR_CONNECTIVITY, last_attempt=0.0):
+    handler = type("Handler", (), {"reconnect_on_advertisement": opted_in})()
+    return {
+        "handler": handler,
+        "ble_device": None,
+        "failure_count": failures,
+        "last_error": last_error,
+        "last_attempt": last_attempt,
+        "wake": asyncio.Event(),
+    }
+
+
+def _advertise(entry):
+    mgr = BleBridgeManager(FakeHass(), {})
+    mgr._active_devices["aa:bb"] = entry
+    advert = _Advert()
+    mgr._on_ble_advertisement(advert, "advertisement")
+    assert entry["ble_device"] is advert.device
+    return entry["wake"].is_set()
+
+
+def test_advertisement_wakes_a_failing_opted_in_device():
+    assert _advertise(_failing_entry()) is True
+
+
+def test_advertisement_leaves_other_devices_on_their_backoff():
+    assert _advertise(_failing_entry(opted_in=False)) is False
+    assert _advertise(_failing_entry(failures=0)) is False
+    assert _advertise(_failing_entry(last_error=const.ERROR_AUTH_FAILED)) is False
+
+
+def test_advertisement_reconnects_are_spaced_out():
+    import time
+    recent = time.monotonic() - const.BLE_ADVERTISEMENT_RECONNECT_INTERVAL / 2
+    assert _advertise(_failing_entry(last_attempt=recent)) is False
+
+
+def test_handlers_default_to_the_backoff():
+    assert BleDeviceHandler.reconnect_on_advertisement is False
+    assert MicroAirHandler.reconnect_on_advertisement is False

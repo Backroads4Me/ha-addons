@@ -1,3 +1,18 @@
+### 1.7.2 (Sep 24, 2026)
+
+🛠️ Improvements
+
+- Gen 2 Hughes Power Watchdogs now report power factor for each line
+- Hughes Power Watchdog readings display at a sensible precision instead of four decimal places
+- A Hughes Power Watchdog reconnects within seconds when shore power returns, instead of after up to five minutes
+
+🐛 Fixes
+
+- The Hughes Neutral Monitoring switch shows the Watchdog's actual setting, and Neutral Problem reports a lost neutral instead of turning on when monitoring is bypassed
+- Removed the Hughes Relay Status sensor, which did not reflect the relay: Gen 2 Watchdogs do not report relay state. The Shore Power Relay switch shows the last command sent.
+- Hughes cumulative energy and combined power no longer show long decimal tails
+- A water heater element that is switched off no longer reports an under-current fault
+
 ### 1.7.1 (Sep 16, 2026)
 
 🐛 Fixes
