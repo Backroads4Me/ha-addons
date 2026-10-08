@@ -165,7 +165,7 @@ def test_v2_30a_frame_and_state_message():
     assert state["voltage_l1"] == 121.4
     assert state["energy_l1"] == 142.3
     assert state["error_code_l1"] == 0
-    assert "relay_status" not in state
+    assert state["relay_status"] is True
     assert state["neutral_monitoring"] is True
     assert state["neutral_problem"] is False
     assert state["output_voltage"] is None
@@ -173,6 +173,25 @@ def test_v2_30a_frame_and_state_message():
     message = handler.state_messages(state)[0]
     assert message.topic == "librecoach/ble/hughes/aa:bb/state"
     assert json.loads(message.payload)["power_l1"] == 1735.0
+
+
+def test_v2_30a_frame_reports_relay_open():
+    handler = HughesHandler("AA:BB", {"_device_name": "WD_V7_123"})
+    for relay in (1, 2):
+        state = handler.parse_status(
+            v2_frame(v2_block(121.4, 0.0, 0.0, 142.3, relay=relay))
+        )
+        assert state["relay_status"] is False
+
+
+def test_v2_50a_frame_reports_no_relay_status():
+    handler = HughesHandler("AA:BB", {"_device_name": "WD_E6_123"})
+    state = handler.parse_status(v2_frame(
+        v2_block(121.4, 14.3, 1735.0, 100.0, relay=0),
+        v2_block(120.2, 8.1, 973.6, 42.3, relay=1),
+    ))
+
+    assert "relay_status" not in state
 
 
 def test_v2_50a_frame_decodes_line_two():

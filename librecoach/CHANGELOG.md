@@ -1,3 +1,10 @@
+### 1.7.3 (Oct 8, 2026)
+
+🛠️ Improvements
+
+- Micro-Air thermostats report each zone's current HVAC action: cooling, heating, drying, fan, idle or off
+- The Hughes Shore Power Relay switch shows the relay's actual state on 30A Gen 2 Watchdogs. On 50A Watchdogs, which do not report relay state, it shows the last command sent.
+
 ### 1.7.2 (Sep 24, 2026)
 
 🛠️ Improvements

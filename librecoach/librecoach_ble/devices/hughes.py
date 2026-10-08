@@ -71,6 +71,7 @@ IMMEDIATE_PUBLISH_FIELDS = (
     "error_code_l2",
     "neutral_monitoring",
     "neutral_problem",
+    "relay_status",
     "backlight",
     "boost_mode",
     "error_history",
@@ -411,15 +412,19 @@ class HughesHandler(BleDeviceHandler):
         self._line_1 = self._parse_v2_line(raw, 9)
         self._line_2 = self._parse_v2_line(raw, 43) if payload_length == 68 else None
         state = self._build_state("V2")
-        # Byte 33 of each line block is not relay state: a startup-delay capture
-        # showed it fixed at 0 for L1 and 1 for L2 while the relay opened and
-        # closed. Gen2 telemetry carries no relay state, so none is reported.
         state.update({
             "backlight": raw[33],
             "output_voltage": None,
             "temperature": None,
             "boost_mode": None,
         })
+        # Byte 42 (block offset 33) is relay state only on 30A single-block
+        # frames: 0x00 = closed, 0x01/0x02 = open or tripped. On 50A dual-block
+        # frames it is a line marker (0 for L1, 1 for L2) that a WD_E5 capture
+        # showed fixed while the relay opened and closed, so 50A frames report
+        # no relay state.
+        if payload_length == 34:
+            state["relay_status"] = raw[42] == 0
         if self.has_booster:
             state.update({
                 "output_voltage": struct.unpack(">I", raw[29:33])[0] / 10000,
